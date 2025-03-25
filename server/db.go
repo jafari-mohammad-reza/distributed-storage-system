@@ -68,8 +68,8 @@ func findUser(email string) (*findUserResult, error) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			slog.Warn("user not found", "email", email)
-			return nil, nil 	
-	}
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -93,30 +93,35 @@ func findUser(email string) (*findUserResult, error) {
 
 	return &result, nil
 }
-func updateAgents(userId int, agent string) error {
-	findQuery := `SELECT id FROM agents WHERE agent = ?`
+func agentExist(userId int, agent string) bool {
+	findQuery := `SELECT id FROM agents WHERE agent = ? AND user_id = ?`
 	var foundId int
-	rows, err := _conn.Query(findQuery, agent)
+	rows, err := _conn.Query(findQuery, agent, userId)
 	if err != nil {
-		return err
+		return false
 	}
 	for rows.Next() {
 		if err := rows.Scan(&foundId); err != nil {
-			return err
+			return false
 		}
 	}
 	if foundId != 0 {
+		return true
+	}
+	return false
+}
+func updateAgents(userId int, agent string) error {
+	if agentExist(userId, agent) {
 		return nil
 	}
-
 	query := `INSERT INTO agents (user_id, agent) VALUES (?, ?)`
-	_, err = _conn.Exec(query, userId, agent)
+	_, err := _conn.Exec(query, userId, agent)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func deleteAgent(email ,agent string) error {
+func deleteAgent(email, agent string) error {
 	query := `DELETE FROM agents WHERE user_id = (SELECT id FROM users WHERE email = ?) AND agent = ?`
 	_, err := _conn.Exec(query, email, agent)
 	if err != nil {
