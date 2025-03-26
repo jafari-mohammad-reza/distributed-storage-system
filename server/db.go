@@ -5,23 +5,11 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var _conn *sql.DB
-
-func InitSql() error {
-	conn, err := sql.Open("sqlite3", "file:database.sqlite?cache=shared")
-	if err != nil {
-		return err
-	}
-	_conn = conn
-	if err := initDb(); err != nil {
-		return err
-	}
-	return nil
-}
-func initDb() error {
+func InitDb() error {
 	query := `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email VARCHAR(50) UNIQUE NOT NULL,
@@ -33,7 +21,8 @@ func initDb() error {
 	agent VARCHAR(50) NOT NULL
 	);
 	`
-	_, err := _conn.Exec(query)
+	conn := db.GetConn()
+	_, err := conn.Exec(query)
 	if err != nil {
 		return err
 	}
@@ -41,12 +30,13 @@ func initDb() error {
 }
 
 func createUser(email, agent, password string) error {
+	conn := db.GetConn()
 	query := `INSERT INTO users (email , password) VALUES (? , ?)`
-	_, err := _conn.Exec(query, email, password)
+	_, err := conn.Exec(query, email, password)
 	if err != nil {
 		return err
 	}
-	_, err = _conn.Exec("INSERT INTO agents (user_id, agent) VALUES ((SELECT id FROM users WHERE email = ?), ?)", email, agent)
+	_, err = conn.Exec("INSERT INTO agents (user_id, agent) VALUES ((SELECT id FROM users WHERE email = ?), ?)", email, agent)
 	if err != nil {
 		return err
 	}
@@ -60,11 +50,12 @@ type findUserResult struct {
 }
 
 func findUser(email string) (*findUserResult, error) {
+	conn := db.GetConn()
 	var result findUserResult
 	slog.Info("searching for user", "email", email)
 
 	query := `SELECT id, email FROM users WHERE email = ?`
-	err := _conn.QueryRow(query, email).Scan(&result.id, &result.email)
+	err := conn.QueryRow(query, email).Scan(&result.id, &result.email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			slog.Warn("user not found", "email", email)
@@ -74,7 +65,7 @@ func findUser(email string) (*findUserResult, error) {
 	}
 
 	query = `SELECT agent FROM agents WHERE user_id = ?`
-	rows, err := _conn.Query(query, result.id)
+	rows, err := conn.Query(query, result.id)
 	if err != nil {
 		return nil, err
 	}
@@ -94,9 +85,10 @@ func findUser(email string) (*findUserResult, error) {
 	return &result, nil
 }
 func agentExist(userId int, agent string) bool {
+	conn := db.GetConn()
 	findQuery := `SELECT id FROM agents WHERE agent = ? AND user_id = ?`
 	var foundId int
-	rows, err := _conn.Query(findQuery, agent, userId)
+	rows, err := conn.Query(findQuery, agent, userId)
 	if err != nil {
 		return false
 	}
@@ -111,19 +103,21 @@ func agentExist(userId int, agent string) bool {
 	return false
 }
 func updateAgents(userId int, agent string) error {
+	conn := db.GetConn()
 	if agentExist(userId, agent) {
 		return nil
 	}
 	query := `INSERT INTO agents (user_id, agent) VALUES (?, ?)`
-	_, err := _conn.Exec(query, userId, agent)
+	_, err := conn.Exec(query, userId, agent)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 func deleteAgent(email, agent string) error {
+	conn := db.GetConn()
 	query := `DELETE FROM agents WHERE user_id = (SELECT id FROM users WHERE email = ?) AND agent = ?`
-	_, err := _conn.Exec(query, email, agent)
+	_, err := conn.Exec(query, email, agent)
 	if err != nil {
 		return err
 	}

@@ -4,11 +4,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestInvokeAndRevoke(t *testing.T) {
-	err := InitSql()
+	err := db.InitSqlite()
+	assert.Nil(t, err)
+	err = InitDb()
 	assert.Nil(t, err)
 	createUserErr := createUser("testuser@gmail.com", "test-agent", "testpassowrd")
 	assert.Nil(t, createUserErr)
