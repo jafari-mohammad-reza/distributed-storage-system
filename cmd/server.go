@@ -9,5 +9,7 @@ func main() {
 	if err := server.InitHttpServer(); err != nil {
 		panic(err) //TODO: will add error handling later
 	}
+	// handle storage connections and version controll
+	// there will be many replicas of server to prevent single point of failure
 
 }
