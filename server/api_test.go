@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	"github.com/stretchr/testify/assert"
 )
@@ -25,10 +26,10 @@ func TestInvokeAndRevoke(t *testing.T) {
 	assert.True(t, agentExist)
 	delteAgentErr := deleteAgent(foundUser.email, foundUser.agents[0])
 	assert.Nil(t, delteAgentErr)
-	token, err := generateApiKey(foundUser.email, foundUser.agents[0])
+	token, err := pkg.GenerateApiKey(foundUser.email, foundUser.agents[0])
 	assert.Nil(t, err)
 	assert.NotNil(t, token)
-	decoded, err := decodeToken(token)
+	decoded, err := pkg.DecodeToken(token)
 	assert.Nil(t, err)
 	assert.NotNil(t, decoded)
 	assert.Equal(t, decoded["email"].(string), foundUser.email)

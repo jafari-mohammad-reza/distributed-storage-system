@@ -21,6 +21,7 @@ func TestRegisterSystem(t *testing.T) {
 	for i := range 5 {
 		fmt.Println("producing", i)
 		db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": fmt.Sprintf("storage%d", i)})
+		wg.Done()
 	}
 	assert.Greater(t, len(storages), 0)
 	wg.Wait()

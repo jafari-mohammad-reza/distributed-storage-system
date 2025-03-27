@@ -1,4 +1,4 @@
-package server
+package pkg
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func generateApiKey(email, agent string) (string, error) {
+func GenerateApiKey(email, agent string) (string, error) {
 	claims := jwt.MapClaims{}
 	claims["email"] = email
 	claims["agent"] = agent
@@ -19,7 +19,7 @@ func generateApiKey(email, agent string) (string, error) {
 	}
 	return tokenString, nil
 }
-func decodeToken(token string) (jwt.MapClaims, error) {
+func DecodeToken(token string) (jwt.MapClaims, error) {
 	t, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		return []byte(os.Getenv("JWT_SECRET")), nil
 	})

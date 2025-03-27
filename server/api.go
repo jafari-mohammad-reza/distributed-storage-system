@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/crypto/bcrypt"
@@ -27,14 +28,8 @@ func InitHttpServer() error {
 	return server.Start(":8080")
 }
 
-type invokeBody struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8,max=16"`
-	Agent    string `json:"agent"`
-}
-
 func invokeToken(c echo.Context) error {
-	var body invokeBody
+	var body pkg.InvokeBody
 	if err := c.Bind(&body); err != nil {
 		return c.JSON(400, map[string]interface{}{
 			"message": "invalid request",
@@ -72,7 +67,7 @@ func invokeToken(c echo.Context) error {
 			})
 		}
 	}
-	token, err := generateApiKey(body.Email, body.Agent)
+	token, err := pkg.GenerateApiKey(body.Email, body.Agent)
 	if err != nil {
 		fmt.Errorf("generate tojen err %v", err)
 		return c.JSON(500, map[string]interface{}{
@@ -88,7 +83,7 @@ func revokeToken(c echo.Context) error {
 			"message": "invalid request",
 		})
 	}
-	claims, err := decodeToken(token)
+	claims, err := pkg.DecodeToken(token)
 	if err != nil {
 		return c.JSON(500, map[string]interface{}{
 			"message": "internal server error",
