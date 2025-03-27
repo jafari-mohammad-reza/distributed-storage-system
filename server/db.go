@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -19,6 +20,14 @@ func InitDb() error {
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	user_id INTEGER NOT NULL,
 	agent VARCHAR(50) NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS uploads (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_id INTEGER NOT NULL,
+	agent_id INTEGER NOT NULL,
+	file_name VARCHAR(50) NOT NULL,
+	file_path VARCHAR(150) NOT NULL,
+	uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 	`
 	conn := db.GetConn()
@@ -118,6 +127,24 @@ func deleteAgent(email, agent string) error {
 	conn := db.GetConn()
 	query := `DELETE FROM agents WHERE user_id = (SELECT id FROM users WHERE email = ?) AND agent = ?`
 	_, err := conn.Exec(query, email, agent)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func insertUpload(tr *pkg.TransferPacket) error {
+	conn := db.GetConn()
+	user, err := findUser(tr.Email)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+	query := `INSERT INTO uploads (user_id, agent_id, file_name, file_path) 
+			  VALUES (?, (SELECT id FROM agents WHERE agent = ? AND user_id = ?), ?, ?)`
+	_, err = conn.Exec(query, user.id, tr.Agent, user.id, tr.FileName, tr.Dir)
 	if err != nil {
 		return err
 	}

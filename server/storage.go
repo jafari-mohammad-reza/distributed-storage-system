@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -27,11 +29,14 @@ func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.Wai
 	go func() {
 		for msg := range db.Consume(context.Background(), redisClient, stream, group, consumer) {
 			storageId := msg.Values["ID"].(string)
+			port := msg.Values["Port"].(string)
+			portNum, _ := strconv.Atoi(port)
 			if _, exists := storages[storageId]; !exists {
 				storages[storageId] = pkg.Storage{
 					Id:         storageId,
 					Index:      len(storages) + 1,
 					LastUpdate: time.Now(),
+					Port:       portNum,
 				}
 				storagesMsg, _ := json.Marshal(storages)
 				db.Publish(context.Background(), redisClient, "storage-update", string(storagesMsg))
@@ -70,6 +75,28 @@ func healthCheckStorages(redisClient *redis.Client) {
 	}
 }
 func HandleUploadedFile(tr *pkg.TransferPacket, packetBytes []byte) error {
-	fmt.Println("recieved ", tr, " with size ", len(packetBytes))
+	err := insertUpload(tr)
+	if err != nil {
+		slog.Error("error inserting upload", "err", err)
+		return err
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(storages))
+	for _, storage := range storages {
+		go func(storage pkg.Storage) {
+			tr.Compressed = packetBytes
+			tr.SenderMeta.Application = "server"
+			serialized, err := pkg.SerializePacket(tr)
+			if err != nil {
+				slog.Error("error serializing file", "err", err)
+			}
+			err = pkg.SendDataOverTcp(storage.Port, int64(len(serialized)), serialized)
+			if err != nil {
+				slog.Error("error sending data to storage", "err", err)
+			}
+			defer wg.Done()
+		}(storage)
+	}
+	wg.Wait()
 	return nil
 }

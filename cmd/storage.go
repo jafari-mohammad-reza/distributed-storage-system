@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/google/uuid"
+	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	"github.com/jafari-mohammad-reza/dotsync/storage"
 )
@@ -13,7 +14,11 @@ func main() {
 	// subscribe to a channel using its index to give data to next index
 	// iof its the 0 index it will just create its own file system
 	redisClient := db.NewRedisClient()
-	go storage.ConnectToService(id.String(), redisClient)
+	port := 8081
+	go pkg.InitTcpListener(port, func(tr *pkg.TransferPacket, packetBytes []byte) error {
+		return nil
+	})
+	go storage.ConnectToService(id.String(), port, redisClient)
 	go storage.HealthCheck(id.String(), redisClient)
 	select {}
 }

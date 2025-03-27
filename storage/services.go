@@ -10,9 +10,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func ConnectToService(storageId string, redisClient *redis.Client) {
+func ConnectToService(storageId string, port int, redisClient *redis.Client) {
 	var strorages map[string]pkg.Storage
-	go db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": storageId})
+	go db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": storageId, "Port": port})
 	for msg := range db.Subscribe(context.Background(), redisClient, "storage-update") {
 		json.Unmarshal([]byte(msg.Payload), &strorages)
 		currentStorage := strorages[storageId]

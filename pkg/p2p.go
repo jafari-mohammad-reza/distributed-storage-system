@@ -43,23 +43,25 @@ func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket, 
 		slog.Error("File reception error", "err", err)
 		return err
 	}
-	receivedPacket, err := DeserializePacket(buf.Bytes())
+	var originalData []byte
+	var receivedPacket *TransferPacket
+	receivedPacket, err = DeserializePacket(buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Printf("Received File: %s, Original Size: %d bytes\n", receivedPacket.FileName, receivedPacket.OriginalSize)
-
-	originalData, err := DecompressPacket(receivedPacket)
-	if err != nil {
-		return err
+	if receivedPacket.SenderMeta.Application == "client" {
+		originalData, err = DecompressPacket(receivedPacket)
+		if err != nil {
+			return err
+		}
+	} else {
+		originalData = receivedPacket.Compressed
 	}
 	if err := connectionHandler(receivedPacket, originalData); err != nil {
 		return err
 	}
 	return nil
 }
-
 func SendDataOverTcp(port int, size int64, dataBytes []byte) error {
 	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

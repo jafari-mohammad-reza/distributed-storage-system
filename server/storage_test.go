@@ -19,7 +19,6 @@ func TestRegisterSystem(t *testing.T) {
 	wg.Add(5)
 	initRegisterSystem("server1", redisClient, &wg)
 	for i := range 5 {
-		fmt.Println("producing", i)
 		db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": fmt.Sprintf("storage%d", i)})
 		wg.Done()
 	}

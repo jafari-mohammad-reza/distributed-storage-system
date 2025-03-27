@@ -21,7 +21,7 @@ func UploadFile(filePath string) error {
 	if err != nil {
 		return err
 	}
-	packet, err := pkg.CompressFile(filePath, pkg.SenderMeta{Email: claims["email"].(string), Agent: claims["agent"].(string)})
+	packet, err := pkg.CompressFile(filePath, pkg.SenderMeta{Email: claims["email"].(string), Agent: claims["agent"].(string), Application: "client"})
 	if err != nil {
 		slog.Error("error compressing file", "err", err)
 		return err
