@@ -24,4 +24,4 @@ jobs:
     - name: Build-server
       run: go build -v -o build/server cmd/server.go
     - name: Build-storage
-      run: go build -v build/storage cmd/storage.go
+      run: go build -v -o build/storage cmd/storage.go
