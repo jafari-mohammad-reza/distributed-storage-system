@@ -2,8 +2,14 @@ package storage
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
@@ -35,10 +41,47 @@ func ConnectToService(storageId string, port int, redisClient *redis.Client) {
 func restoreData(storageId string) {}
 func HealthCheck(storageId string, redisClient *redis.Client) {
 	channel := fmt.Sprintf("%s-health", storageId)
-	select {
-	case msg := <-db.Subscribe(context.Background(), redisClient, channel):
-		if msg.Payload == "ping" {
-			db.Publish(context.Background(), redisClient, channel, "pong")
-		}
+	msg := <-db.Subscribe(context.Background(), redisClient, channel)
+	if msg.Payload == "ping" {
+		db.Publish(context.Background(), redisClient, channel, "pong")
 	}
+}
+
+type PathKey struct {
+	Pathname string
+	Filename string
+}
+
+func hashPath(key string) PathKey {
+	hash := sha1.Sum([]byte(key))
+	hashString := hex.EncodeToString(hash[:])
+	blockSize := 5
+	sliceLen := len(hashString) / blockSize
+	paths := make([]string, sliceLen)
+	for i := range sliceLen {
+		from, to := i*blockSize, (i*blockSize)+blockSize
+		paths[i] = hashString[from:to]
+	}
+	return PathKey{
+		Pathname: strings.Join(paths, "/"),
+		Filename: hashString,
+	}
+}
+
+func HandleUpload(tr *pkg.TransferPacket, packetBytes []byte) error {
+	ext := filepath.Ext(tr.FileName)
+	dirPath := path.Join(tr.Dir, strings.ReplaceAll(tr.FileName, ext, ""))
+	dirHash := hashPath(dirPath)
+	uploadPath := path.Join(tr.Email, dirHash.Filename)
+	uploadHash := hashPath(uploadPath)
+	fmt.Printf("\n%+v", uploadHash)
+	err := os.MkdirAll(uploadPath, 0755)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(path.Join(uploadPath, fmt.Sprintf("%s_%s%s", tr.UploadedIn.UTC().Format("20060102150405"), uploadHash.Filename, ext)), packetBytes, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
 }

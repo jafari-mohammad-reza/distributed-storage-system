@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 func GetFilesByte(files []string) (map[string][]byte, error) {
@@ -85,6 +86,7 @@ type TransferPacket struct {
 	Dir          string
 	OriginalSize int64
 	Compressed   []byte
+	UploadedIn time.Time
 	SenderMeta
 }
 

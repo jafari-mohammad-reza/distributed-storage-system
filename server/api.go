@@ -92,6 +92,9 @@ func revokeToken(c echo.Context) error {
 	email := claims["email"].(string)
 	agent := claims["agent"].(string)
 	foundUser, err := findUser(email)
+	if err != nil {
+		return err
+	}
 	if foundUser == nil {
 		return c.JSON(400, map[string]interface{}{
 			"message": "invalid request",

@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/jafari-mohammad-reza/dotsync/pkg"
@@ -27,7 +28,8 @@ func InitDb() error {
 	agent_id INTEGER NOT NULL,
 	file_name VARCHAR(50) NOT NULL,
 	file_path VARCHAR(150) NOT NULL,
-	uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	uploaded_at TIMESTAMP,
+	uploaded_in TEXT 
 	);
 	`
 	conn := db.GetConn()
@@ -142,11 +144,40 @@ func insertUpload(tr *pkg.TransferPacket) error {
 	if user == nil {
 		return errors.New("user not found")
 	}
-	query := `INSERT INTO uploads (user_id, agent_id, file_name, file_path) 
-			  VALUES (?, (SELECT id FROM agents WHERE agent = ? AND user_id = ?), ?, ?)`
-	_, err = conn.Exec(query, user.id, tr.Agent, user.id, tr.FileName, tr.Dir)
+	query := `INSERT INTO uploads (user_id, agent_id, file_name, file_path, uploaded_at) 
+			  VALUES (?, (SELECT id FROM agents WHERE agent = ? AND user_id = ?), ?, ?, ?)`
+	_, err = conn.Exec(query, user.id, tr.Agent, user.id, tr.FileName, tr.Dir,tr.UploadedIn)
 	if err != nil {
 		return err
 	}
 	return nil
 }
+
+type findUploadResult struct {
+	id          int
+	uploaded_in string
+}
+
+func updateUploadStorage(fileName, dir, storageId string) error {
+	conn := db.GetConn()
+	findQuery := "SELECT id,uploaded_in FROM uploads WHERE file_name = ? AND file_path = ? ORDER BY uploaded_at DESC LIMIT 1;"
+	var result findUploadResult
+	err := conn.QueryRow(findQuery, fileName, dir).Scan(&result.id, &result.uploaded_in)
+	if err != nil {
+		return err
+	}
+	query := `UPDATE uploads SET uploaded_in = ? WHERE id = ?`
+	var uploadedIn string
+	if result.uploaded_in == "" {
+		uploadedIn = storageId
+	} else {
+		uploadedIn = fmt.Sprintf("%s,%s", result.uploaded_in, storageId)
+	}
+	_, err = conn.Exec(query, uploadedIn, result.id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// in server side we should handle created hahs for each same file in same dir version

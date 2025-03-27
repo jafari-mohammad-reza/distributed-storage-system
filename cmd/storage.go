@@ -15,9 +15,7 @@ func main() {
 	// iof its the 0 index it will just create its own file system
 	redisClient := db.NewRedisClient()
 	port := 8081
-	go pkg.InitTcpListener(port, func(tr *pkg.TransferPacket, packetBytes []byte) error {
-		return nil
-	})
+	go pkg.InitTcpListener(port, storage.HandleUpload)
 	go storage.ConnectToService(id.String(), port, redisClient)
 	go storage.HealthCheck(id.String(), redisClient)
 	select {}

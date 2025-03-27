@@ -85,6 +85,7 @@ func HandleUploadedFile(tr *pkg.TransferPacket, packetBytes []byte) error {
 	for _, storage := range storages {
 		go func(storage pkg.Storage) {
 			tr.Compressed = packetBytes
+			tr.UploadedIn = time.Now()
 			tr.SenderMeta.Application = "server"
 			serialized, err := pkg.SerializePacket(tr)
 			if err != nil {
@@ -94,6 +95,7 @@ func HandleUploadedFile(tr *pkg.TransferPacket, packetBytes []byte) error {
 			if err != nil {
 				slog.Error("error sending data to storage", "err", err)
 			}
+			updateUploadStorage(tr.FileName, tr.Dir, storage.Id)
 			defer wg.Done()
 		}(storage)
 	}
