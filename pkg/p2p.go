@@ -9,7 +9,7 @@ import (
 	"net"
 )
 
-func InitTcpListener(port int) error {
+func InitTcpListener(port int, connectionHandler func(tr *TransferPacket, packetBytes []byte) error) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		slog.Error("Error in listening", "port", port, "err", err.Error())
@@ -23,12 +23,12 @@ func InitTcpListener(port int) error {
 				slog.Error("Error in accepting connection", "err", err.Error())
 				continue
 			}
-			go handleConnection(conn)
+			go handleConnection(conn, connectionHandler)
 		}
 	}()
 	return nil
 }
-func handleConnection(conn net.Conn) error {
+func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket, packetBytes []byte) error) error {
 	defer conn.Close()
 	buf := new(bytes.Buffer)
 	var size int64
@@ -38,7 +38,6 @@ func handleConnection(conn net.Conn) error {
 		return err
 	}
 	slog.Info("Size received", "size", size)
-	fmt.Println("Size received", "size", size)
 	_, err = io.CopyN(buf, conn, size)
 	if err != nil {
 		slog.Error("File reception error", "err", err)
@@ -55,7 +54,9 @@ func handleConnection(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Decompressed data: ", string(originalData))
+	if err := connectionHandler(receivedPacket, originalData); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -69,3 +69,7 @@ func healthCheckStorages(redisClient *redis.Client) {
 		}
 	}
 }
+func HandleUploadedFile(tr *pkg.TransferPacket, packetBytes []byte) error {
+	fmt.Println("recieved ", tr, " with size ", len(packetBytes))
+	return nil
+}

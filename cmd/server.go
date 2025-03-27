@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/google/uuid"
+	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	"github.com/jafari-mohammad-reza/dotsync/server"
 )
@@ -17,6 +18,11 @@ func main() {
 	redisClient := db.NewRedisClient()
 	go func() {
 		if err := server.InitStorageControll(id.String(), redisClient); err != nil {
+			panic(err)
+		}
+	}()
+	go func() {
+		if err := pkg.InitTcpListener(8000, server.HandleUploadedFile); err != nil { // TODO: read port from config
 			panic(err)
 		}
 	}()

@@ -14,12 +14,17 @@ func TestInitTcpListener(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := InitTcpListener(8080)
+		err := InitTcpListener(8080, func(tr *TransferPacket, packetBytes []byte) error {
+			return nil
+		})
 		assert.Nil(t, err)
 		time.Sleep(1 * time.Second)
 	}()
 
-	packet, err := CompressFile("p2p.go")
+	packet, err := CompressFile("p2p.go", SenderMeta{
+		Email: "test@gmail.com",
+		Agent: "test-agent",
+	})
 	if err != nil {
 		assert.Nil(t, err)
 	}

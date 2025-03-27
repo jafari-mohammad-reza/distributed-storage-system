@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
+	"strings"
 )
 
 type SenderMeta struct {
@@ -14,13 +15,14 @@ type SenderMeta struct {
 }
 type TransferPacket struct {
 	FileName     string
+	Dir          string
 	OriginalSize int64
 	Compressed   []byte
 	SenderMeta
 }
 
 // to send a file we first compress and then serialize packet and to recieve it we deserialize and decompress it
-func CompressFile(filePath string) (*TransferPacket, error) {
+func CompressFile(filePath string, senderMeta SenderMeta) (*TransferPacket, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -37,11 +39,12 @@ func CompressFile(filePath string) (*TransferPacket, error) {
 		return nil, err
 	}
 	gzipWriter.Close()
-
 	packet := &TransferPacket{
 		FileName:     info.Name(),
+		Dir:          strings.Split(filePath, info.Name())[0],
 		OriginalSize: info.Size(),
 		Compressed:   buf.Bytes(),
+		SenderMeta:   senderMeta,
 	}
 
 	return packet, nil
@@ -68,6 +71,7 @@ func DeserializePacket(data []byte) (*TransferPacket, error) {
 
 func DecompressPacket(packet *TransferPacket) ([]byte, error) {
 	gzipReader, err := gzip.NewReader(bytes.NewReader(packet.Compressed))
+	packet.Compressed = nil
 	if err != nil {
 		return nil, err
 	}
