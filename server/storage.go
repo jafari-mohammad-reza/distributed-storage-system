@@ -74,7 +74,7 @@ func healthCheckStorages(redisClient *redis.Client) {
 		}
 	}
 }
-func HandleUploadedFile(tr *pkg.TransferPacket, packetBytes []byte) error {
+func HandleUploadedFile(tr *pkg.TransferPacket) error {
 	err := insertUpload(tr)
 	if err != nil {
 		slog.Error("error inserting upload", "err", err)
@@ -84,7 +84,6 @@ func HandleUploadedFile(tr *pkg.TransferPacket, packetBytes []byte) error {
 	wg.Add(len(storages))
 	for _, storage := range storages {
 		go func(storage pkg.Storage) {
-			tr.Compressed = packetBytes
 			tr.UploadedIn = time.Now()
 			tr.SenderMeta.Application = "server"
 			serialized, err := pkg.SerializePacket(tr)

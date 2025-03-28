@@ -68,14 +68,18 @@ func hashPath(key string) PathKey {
 	}
 }
 
-func HandleUpload(tr *pkg.TransferPacket, packetBytes []byte) error {
+func HandleUpload(tr *pkg.TransferPacket) error {
+	packetBytes, err := pkg.DecompressPacket(tr)
+	if err != nil {
+		return err
+	}
 	ext := filepath.Ext(tr.FileName)
 	dirPath := path.Join(tr.Dir, strings.ReplaceAll(tr.FileName, ext, ""))
 	dirHash := hashPath(dirPath)
 	uploadPath := path.Join(tr.Email, dirHash.Filename)
 	uploadHash := hashPath(uploadPath)
 	fmt.Printf("\n%+v", uploadHash)
-	err := os.MkdirAll(uploadPath, 0755)
+	err = os.MkdirAll(uploadPath, 0755)
 	if err != nil {
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 	"net"
 )
 
-func InitTcpListener(port int, connectionHandler func(tr *TransferPacket, packetBytes []byte) error) error {
+func InitTcpListener(port int, connectionHandler func(tr *TransferPacket) error) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		slog.Error("Error in listening", "port", port, "err", err.Error())
@@ -28,7 +28,7 @@ func InitTcpListener(port int, connectionHandler func(tr *TransferPacket, packet
 	}()
 	return nil
 }
-func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket, packetBytes []byte) error) error {
+func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket) error) error {
 	defer conn.Close()
 	buf := new(bytes.Buffer)
 	var size int64
@@ -43,21 +43,13 @@ func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket, 
 		slog.Error("File reception error", "err", err)
 		return err
 	}
-	var originalData []byte
-	var receivedPacket *TransferPacket
+		var receivedPacket *TransferPacket
 	receivedPacket, err = DeserializePacket(buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
-	if receivedPacket.SenderMeta.Application == "client" {
-		originalData, err = DecompressPacket(receivedPacket)
-		if err != nil {
-			return err
-		}
-	} else {
-		originalData = receivedPacket.Compressed
-	}
-	if err := connectionHandler(receivedPacket, originalData); err != nil {
+
+	if err := connectionHandler(receivedPacket); err != nil {
 		return err
 	}
 	return nil
