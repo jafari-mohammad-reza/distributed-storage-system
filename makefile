@@ -12,3 +12,5 @@ server-test:
 	MODE=test go test ./server
 pkg-test:
 	MODE=test go test ./pkg
+client-test:
+	MODE=test go test ./client

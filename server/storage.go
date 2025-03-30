@@ -26,7 +26,7 @@ func InitStorageControll(serverId string, redisClient *redis.Client) error {
 }
 func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.WaitGroup) {
 	stream := "storage-stream"
-	group := "storage-index" // Your consumer group handling index assignments
+	group := "storage-index" 
 	consumer := serverId
 	go db.CreateConsumerGroup(context.Background(), redisClient, stream, group)
 	go func() {
@@ -103,7 +103,7 @@ func HandleUploadedFile(tr *pkg.TransferPacket) error {
 				slog.Error("error sending data to storage", "err", err)
 			}
 			updateFileStorages(uploadHash.Filename, storage.Id)
-			// updateUploadStorage(tr.FileName, tr.Dir, storage.Id)
+
 			defer wg.Done()
 		}(storage)
 	}

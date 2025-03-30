@@ -33,6 +33,9 @@ jobs:
 
       - name: Run Package Tests
         run: MODE=test go test ./pkg
+      
+      - name: Run Client Tests
+        run: MODE=test go test ./client
 
       - name: Stop RedisJSON Container
         if: always()

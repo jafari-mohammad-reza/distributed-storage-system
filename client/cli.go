@@ -22,10 +22,15 @@ var uploadCmd = &cobra.Command{
 	Short: "Upload file to storage",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := AuthGuard(); err != nil {
-			fmt.Println("error authenticating", err.Error())
+			fmt.Println("error authenticating:", err.Error())
 			return
 		}
-		if err := UploadFile(cmd.Flag("path").Value.String()); err != nil {
+		filePath := cmd.Flag("path").Value.String()
+		if filePath == "" {
+			fmt.Println("invalid path")
+			return
+		}
+		if err := UploadFile(filePath); err != nil {
 			fmt.Println("error uploading file", err.Error())
 		}
 	},
@@ -51,7 +56,6 @@ var authCmd = &cobra.Command{
 		}
 	},
 }
-
 
 var revokeCmd = &cobra.Command{
 	Use:   "revoke",
