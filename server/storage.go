@@ -42,6 +42,7 @@ func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.Wai
 					Port:       portNum,
 				}
 				storagesMsg, _ := json.Marshal(storages)
+				db.DeleteStream(context.Background(), redisClient, "storage-stream", msg.ID)
 				db.Publish(context.Background(), redisClient, "storage-update", string(storagesMsg))
 			}
 			if wg != nil {

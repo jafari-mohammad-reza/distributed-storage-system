@@ -71,14 +71,8 @@ func updateAgents(email, agent string) error {
 	if exists {
 		return nil
 	}
-
-	user, err := findUser(email)
-	if err != nil {
-		return err
-	}
-
-	user.Agents = append(user.Agents, db.Agent{Name: agent})
-	return db.Insert(context.Background(), redisClient, email, user)
+	newAgent, _ := json.Marshal(db.Agent{Name: agent})
+	return db.AppendArray(context.Background(), redisClient, email, newAgent, "$.agents")
 }
 
 func deleteAgent(email, agent string) error {
@@ -86,16 +80,16 @@ func deleteAgent(email, agent string) error {
 	if err != nil {
 		return err
 	}
-
-	newAgents := []db.Agent{}
-	for _, a := range user.Agents {
-		if a.Name != agent {
-			newAgents = append(newAgents, a)
+	index := -1
+	for i, ag := range user.Agents {
+		if ag.Name == agent {
+			index = i
 		}
 	}
-
-	user.Agents = newAgents
-	return db.Insert(context.Background(), redisClient, email, user)
+	if index == -1 {
+		return errors.New("invalid agent to remove")
+	}
+	return db.PopArray(context.Background(), redisClient, email, "$.agents[0]", agent, index)
 }
 
 func uploadFile(tr *pkg.TransferPacket, uploadHash string) error {

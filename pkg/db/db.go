@@ -91,30 +91,8 @@ func AppendArray(ctx context.Context, redisClient *redis.Client, key string, val
 	return nil
 }
 
-func PopArray(ctx context.Context, redisClient *redis.Client, key, path, val string) error {
-	arr, err := redisClient.JSONGet(ctx, key, path).Result()
-	if err != nil {
-		return fmt.Errorf("failed to get array: %w", err)
-	}
-
-	var values []string
-	if err := json.Unmarshal([]byte(arr), &values); err != nil {
-		return fmt.Errorf("failed to unmarshal array: %w", err)
-	}
-
-	index := -1
-	for i, v := range values {
-		if v == val {
-			index = i
-			break
-		}
-	}
-
-	if index == -1 {
-		return fmt.Errorf("value not found in array")
-	}
-
-	_, err = redisClient.JSONArrPop(ctx, key, path, index).Result()
+func PopArray(ctx context.Context, redisClient *redis.Client, key, path, val string, index int) error {
+	_, err := redisClient.JSONArrPop(ctx, key, path, index).Result()
 	if err != nil {
 		return fmt.Errorf("failed to pop value from array at index %d: %w", index, err)
 	}

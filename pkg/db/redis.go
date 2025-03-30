@@ -32,6 +32,9 @@ func Subscribe(ctx context.Context, client *redis.Client, channel string) <-chan
 	sub := client.Subscribe(ctx, channel)
 	return sub.Channel()
 }
+func DeleteStream(ctx context.Context,client *redis.Client , stream , id string) error{
+	return client.XDel(ctx , stream , id).Err()
+}
 func Produce(ctx context.Context, client *redis.Client, stream string, data map[string]interface{}) {
 	id, err := client.XAdd(ctx, &redis.XAddArgs{
 		Stream: stream,

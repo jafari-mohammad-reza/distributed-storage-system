@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jafari-mohammad-reza/dotsync/pkg"
@@ -11,6 +12,7 @@ func TestInvokeAndRevoke(t *testing.T) {
 	createUserErr := createUser("testuser@gmail.com", "test-agent", "testpassowrd")
 	assert.Nil(t, createUserErr)
 	foundUser, err := findUser("testuser@gmail.com")
+	fmt.Println("foundUser", foundUser)
 	assert.Nil(t, err)
 	assert.NotNil(t, foundUser)
 	assert.Equal(t, foundUser.Email, "testuser@gmail.com")
@@ -29,5 +31,10 @@ func TestInvokeAndRevoke(t *testing.T) {
 	assert.NotNil(t, decoded)
 	assert.Equal(t, decoded["email"].(string), foundUser.Email)
 	assert.Equal(t, decoded["agent"].(string), foundUser.Agents[0].Name)
+	err = updateAgents("testuser@gmail.com", "second-agent")
+	assert.Nil(t, err)
+	foundUser, err = findUser("testuser@gmail.com")
+	assert.Nil(t, err)
+	assert.Equal(t, foundUser.Agents[1].Name, "second-agent")
 	defer flushRedis()
 }
