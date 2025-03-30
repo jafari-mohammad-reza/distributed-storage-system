@@ -19,8 +19,7 @@ func TestRegisterSystem(t *testing.T) {
 	wg.Add(5)
 	initRegisterSystem("server1", redisClient, &wg)
 	for i := range 5 {
-		db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": fmt.Sprintf("storage%d", i)})
-		wg.Done()
+		db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": fmt.Sprintf("storage%d", i), "Port": "1234"})
 	}
 	assert.Greater(t, len(storages), 0)
 	wg.Wait()

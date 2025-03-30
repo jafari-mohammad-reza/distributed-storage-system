@@ -9,12 +9,6 @@ import (
 
 func main() {
 	id, _ := uuid.NewUUID()
-	if err := db.InitSqlite(); err != nil {
-		panic(err) //TODO: will add error handling later
-	}
-	if err := server.InitDb(); err != nil {
-		panic(err)
-	}
 	redisClient := db.NewRedisClient()
 	go func() {
 		if err := server.InitStorageControll(id.String(), redisClient); err != nil {

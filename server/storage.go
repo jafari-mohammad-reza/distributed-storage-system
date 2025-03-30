@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"path"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,7 +78,12 @@ func healthCheckStorages(redisClient *redis.Client) {
 	}
 }
 func HandleUploadedFile(tr *pkg.TransferPacket) error {
-	err := insertUpload(tr)
+	ext := filepath.Ext(tr.FileName)
+	dirPath := path.Join(tr.Dir, strings.ReplaceAll(tr.FileName, ext, ""))
+	dirHash := pkg.HashPath(dirPath)
+	uploadPath := path.Join(tr.Email, dirHash.Filename)
+	uploadHash := pkg.HashPath(uploadPath)
+	err := uploadFile(tr, uploadHash.Filename)
 	if err != nil {
 		slog.Error("error inserting upload", "err", err)
 		return err
@@ -94,7 +102,8 @@ func HandleUploadedFile(tr *pkg.TransferPacket) error {
 			if err != nil {
 				slog.Error("error sending data to storage", "err", err)
 			}
-			updateUploadStorage(tr.FileName, tr.Dir, storage.Id)
+			updateFileStorages(uploadHash.Filename, storage.Id)
+			// updateUploadStorage(tr.FileName, tr.Dir, storage.Id)
 			defer wg.Done()
 		}(storage)
 	}

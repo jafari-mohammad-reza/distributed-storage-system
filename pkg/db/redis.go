@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -10,9 +11,12 @@ import (
 )
 
 func NewRedisClient() *redis.Client {
+	addr := "localhost:6379"
+	if os.Getenv("MODE") == "test" {
+		addr = "localhost:6380"
+	}
 	return redis.NewClient(&redis.Options{
-		// Addr:     os.Getenv("REDIS_ADDR"), //TODO fix this later
-		Addr:     "localhost:6379",
+		Addr:     addr,
 		Password: "",
 		DB:       0,
 	})
@@ -89,4 +93,7 @@ func CreateConsumerGroup(ctx context.Context, client *redis.Client, stream, grou
 	} else if err == nil {
 		slog.Info("Consumer group created")
 	}
+}
+func FlushRedis(ctx context.Context, client *redis.Client) error {
+	return client.FlushAll(ctx).Err()
 }

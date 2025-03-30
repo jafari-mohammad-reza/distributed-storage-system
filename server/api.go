@@ -61,7 +61,7 @@ func invokeToken(c echo.Context) error {
 			})
 		}
 	} else {
-		if err := updateAgents(existUser.id, body.Agent); err != nil {
+		if err := updateAgents(existUser.Email, body.Agent); err != nil {
 			return c.JSON(500, map[string]interface{}{
 				"message": "internal server error",
 			})

@@ -14,7 +14,7 @@ func TestInitTcpListener(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := InitTcpListener(8080, func(tr *TransferPacket, packetBytes []byte) error {
+		err := InitTcpListener(8080, func(tr *TransferPacket) error {
 			return nil
 		})
 		assert.Nil(t, err)
