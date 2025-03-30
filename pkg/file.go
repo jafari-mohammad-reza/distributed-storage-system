@@ -3,7 +3,9 @@ package pkg
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/sha1"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -77,8 +79,8 @@ func isSerialized(data []byte) bool {
 }
 
 type SenderMeta struct {
-	Email string
-	Agent string
+	Email       string
+	Agent       string
 	Application string
 }
 type TransferPacket struct {
@@ -86,7 +88,7 @@ type TransferPacket struct {
 	Dir          string
 	OriginalSize int64
 	Compressed   []byte
-	UploadedIn time.Time
+	UploadedIn   time.Time
 	SenderMeta
 }
 
@@ -152,4 +154,25 @@ func DecompressPacket(packet *TransferPacket) ([]byte, error) {
 	}
 
 	return decompressed.Bytes(), nil
+}
+
+type PathKey struct {
+	Pathname string
+	Filename string
+}
+
+func HashPath(key string) PathKey {
+	hash := sha1.Sum([]byte(key))
+	hashString := hex.EncodeToString(hash[:])
+	blockSize := 5
+	sliceLen := len(hashString) / blockSize
+	paths := make([]string, sliceLen)
+	for i := range sliceLen {
+		from, to := i*blockSize, (i*blockSize)+blockSize
+		paths[i] = hashString[from:to]
+	}
+	return PathKey{
+		Pathname: strings.Join(paths, "/"),
+		Filename: hashString,
+	}
 }

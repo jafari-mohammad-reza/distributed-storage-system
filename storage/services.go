@@ -2,8 +2,6 @@ package storage
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -47,27 +45,6 @@ func HealthCheck(storageId string, redisClient *redis.Client) {
 	}
 }
 
-type PathKey struct {
-	Pathname string
-	Filename string
-}
-
-func hashPath(key string) PathKey {
-	hash := sha1.Sum([]byte(key))
-	hashString := hex.EncodeToString(hash[:])
-	blockSize := 5
-	sliceLen := len(hashString) / blockSize
-	paths := make([]string, sliceLen)
-	for i := range sliceLen {
-		from, to := i*blockSize, (i*blockSize)+blockSize
-		paths[i] = hashString[from:to]
-	}
-	return PathKey{
-		Pathname: strings.Join(paths, "/"),
-		Filename: hashString,
-	}
-}
-
 func HandleUpload(tr *pkg.TransferPacket) error {
 	packetBytes, err := pkg.DecompressPacket(tr)
 	if err != nil {
@@ -75,9 +52,9 @@ func HandleUpload(tr *pkg.TransferPacket) error {
 	}
 	ext := filepath.Ext(tr.FileName)
 	dirPath := path.Join(tr.Dir, strings.ReplaceAll(tr.FileName, ext, ""))
-	dirHash := hashPath(dirPath)
+	dirHash := pkg.HashPath(dirPath)
 	uploadPath := path.Join(tr.Email, dirHash.Filename)
-	uploadHash := hashPath(uploadPath)
+	uploadHash := pkg.HashPath(uploadPath)
 	fmt.Printf("\n%+v", uploadHash)
 	err = os.MkdirAll(uploadPath, 0755)
 	if err != nil {
