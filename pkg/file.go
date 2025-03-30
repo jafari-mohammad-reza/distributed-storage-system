@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 )
 
 func GetFilesByte(files []string) (map[string][]byte, error) {
@@ -84,11 +83,10 @@ type SenderMeta struct {
 	Application string
 }
 type TransferPacket struct {
-	FileName     string
-	Dir          string
+	Command string
 	OriginalSize int64
 	Compressed   []byte
-	UploadedIn   time.Time
+	Meta         map[string]string
 	SenderMeta
 }
 
@@ -110,11 +108,13 @@ func CompressFile(filePath string, senderMeta SenderMeta) (*TransferPacket, erro
 		return nil, err
 	}
 	gzipWriter.Close()
+	meta := map[string]string{}
+	meta["FileName"] = info.Name()
+	meta["Dir"] = strings.Split(filePath, info.Name())[0]
 	packet := &TransferPacket{
-		FileName:     info.Name(),
-		Dir:          strings.Split(filePath, info.Name())[0],
 		OriginalSize: info.Size(),
 		Compressed:   buf.Bytes(),
+		Meta:         meta,
 		SenderMeta:   senderMeta,
 	}
 

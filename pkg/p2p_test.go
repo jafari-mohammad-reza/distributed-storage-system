@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"bytes"
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +15,7 @@ func TestInitTcpListener(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := InitTcpListener(8080, func(tr *TransferPacket) error {
+		err := InitTcpListener(8080, func(buf *bytes.Buffer) error {
 			return nil
 		})
 		assert.Nil(t, err)

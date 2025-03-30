@@ -15,7 +15,7 @@ func InitServer() {
 		}
 	}()
 	go func() {
-		if err := pkg.InitTcpListener(8000, HandleUploadedFile); err != nil { // TODO: read port from config
+		if err := pkg.InitTcpListener(8000, HandleConnection); err != nil { // TODO: read port from config
 			panic(err)
 		}
 	}()

@@ -98,11 +98,11 @@ func uploadFile(tr *pkg.TransferPacket, uploadHash string) error {
 	if err != nil {
 		return err
 	}
-
-	// Look for an existing file with the same name and path
+	meta := tr.Meta
 	for _, file := range existingFiles {
-		if file["name"] == tr.FileName && file["path"] == tr.Dir {
-			// Append a new version to the existing file
+		filename := meta["FileName"]
+		dir := meta["Dir"]
+		if file["name"] == filename && file["path"] == dir {
 			version := db.FileVersion{
 				ID:        uuid.New().String(),
 				Hash:      uploadHash,
@@ -110,18 +110,18 @@ func uploadFile(tr *pkg.TransferPacket, uploadHash string) error {
 				CreatedAt: time.Now().Format(time.RFC3339),
 			}
 
-			fileVersionPath := fmt.Sprintf("$.files[?(@.name=='%s' && @.path=='%s')].versions", tr.FileName, tr.Dir)
+			fileVersionPath := fmt.Sprintf("$.files[?(@.name=='%s' && @.path=='%s')].versions", filename, dir)
 			versionJson, _ := json.Marshal(version)
 			return db.AppendArray(context.Background(), redisClient, tr.Email, string(versionJson), fileVersionPath)
 		}
 	}
 
-	// If file doesn't exist, create a new entry
+	uploadedIn, _ := time.Parse("2006-01-02T15:04:05.000Zs", tr.Meta["UploadedIn"])
 	upload := db.File{
 		ID:         uuid.New().String(),
-		Name:       tr.FileName,
-		Path:       tr.Dir,
-		UploadedAt: tr.UploadedIn.Format(time.RFC3339),
+		Name:       meta["FileName"],
+		Path:       meta["Dir"],
+		UploadedAt: uploadedIn.Format(time.RFC3339),
 		UploadedBy: tr.Agent,
 		Versions: []db.FileVersion{
 			{

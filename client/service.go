@@ -26,6 +26,7 @@ func UploadFile(filePath string) error {
 		slog.Error("error compressing file", "err", err)
 		return err
 	}
+	packet.Command = "upload"
 
 	serialized, err := pkg.SerializePacket(packet)
 	if err != nil {

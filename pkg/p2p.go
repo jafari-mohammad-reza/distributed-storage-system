@@ -9,7 +9,7 @@ import (
 	"net"
 )
 
-func InitTcpListener(port int, connectionHandler func(tr *TransferPacket) error) error {
+func InitTcpListener(port int, connectionHandler func(buf *bytes.Buffer) error) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		slog.Error("Error in listening", "port", port, "err", err.Error())
@@ -28,7 +28,7 @@ func InitTcpListener(port int, connectionHandler func(tr *TransferPacket) error)
 	}()
 	return nil
 }
-func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket) error) error {
+func handleConnection(conn net.Conn, connectionHandler func(buf *bytes.Buffer) error) error {
 	defer conn.Close()
 	buf := new(bytes.Buffer)
 	var size int64
@@ -43,13 +43,8 @@ func handleConnection(conn net.Conn, connectionHandler func(tr *TransferPacket) 
 		slog.Error("File reception error", "err", err)
 		return err
 	}
-		var receivedPacket *TransferPacket
-	receivedPacket, err = DeserializePacket(buf.Bytes())
-	if err != nil {
-		panic(err)
-	}
 
-	if err := connectionHandler(receivedPacket); err != nil {
+	if err := connectionHandler(buf); err != nil {
 		return err
 	}
 	return nil

@@ -1,13 +1,12 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
-	"strings"
 
 	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
@@ -45,24 +44,28 @@ func HealthCheck(storageId string, redisClient *redis.Client) {
 	}
 }
 
-func HandleUpload(tr *pkg.TransferPacket) error {
-	packetBytes, err := pkg.DecompressPacket(tr)
+func HandleConnection(buf *bytes.Buffer) error {
+	tr, err := pkg.DeserializePacket(buf.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	switch tr.Command {
+	case "upload":
+		return handleUpload(tr)
+	}
+	return nil
+}
+func handleUpload(tr *pkg.TransferPacket) error {
+	uploadPath := tr.Meta["UploadPath"]
+	uploadHash := tr.Meta["UploadHash"]
+	err := os.MkdirAll(uploadPath, 0755)
 	if err != nil {
 		return err
 	}
-	ext := filepath.Ext(tr.FileName)
-	dirPath := path.Join(tr.Dir, strings.ReplaceAll(tr.FileName, ext, ""))
-	dirHash := pkg.HashPath(dirPath)
-	uploadPath := path.Join(tr.Email, dirHash.Filename)
-	uploadHash := pkg.HashPath(uploadPath)
-	err = os.MkdirAll(uploadPath, 0755)
-	if err != nil {
-		return err
-	}
-	writeHash := path.Join(uploadPath, fmt.Sprintf("%s_%s%s", tr.UploadedIn.UTC().Format("20060102150405"), uploadHash.Filename, ext))
-	err = os.WriteFile(writeHash, packetBytes, 0755)
+	err = os.WriteFile(path.Join(uploadPath, uploadHash), tr.Compressed, 0755)
 	if err != nil {
 		return err
 	}
 	return nil
+
 }

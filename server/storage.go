@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -78,9 +79,22 @@ func healthCheckStorages(redisClient *redis.Client) {
 		}
 	}
 }
-func HandleUploadedFile(tr *pkg.TransferPacket) error {
-	ext := filepath.Ext(tr.FileName)
-	dirPath := path.Join(tr.Dir, strings.ReplaceAll(tr.FileName, ext, ""))
+func HandleConnection(buf *bytes.Buffer) error {
+	tr, err := pkg.DeserializePacket(buf.Bytes())
+	if err != nil {
+		panic(err)
+	}
+	switch tr.Command {
+	case "upload":
+		return handleUpload(tr)
+	}
+	return nil
+}
+func handleUpload(tr *pkg.TransferPacket) error {
+	fileName := tr.Meta["FileName"]
+	dir := tr.Meta["Dir"]
+	ext := filepath.Ext(fileName)
+	dirPath := path.Join(dir, strings.ReplaceAll(fileName, ext, ""))
 	dirHash := pkg.HashPath(dirPath)
 	uploadPath := path.Join(tr.Email, dirHash.Filename)
 	uploadHash := pkg.HashPath(uploadPath)
@@ -94,7 +108,9 @@ func HandleUploadedFile(tr *pkg.TransferPacket) error {
 	wg.Add(len(storages))
 	for _, storage := range storages {
 		go func(storage pkg.Storage) {
-			tr.UploadedIn = time.Now()
+			tr.Meta["UploadedIn"] = time.Now().String()
+			tr.Meta["UploadPath"] = uploadPath
+			tr.Meta["UploadHash"] = writeHash
 			tr.SenderMeta.Application = "server"
 			serialized, err := pkg.SerializePacket(tr)
 			if err != nil {
