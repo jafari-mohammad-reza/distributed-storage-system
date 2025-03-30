@@ -55,12 +55,12 @@ func HandleUpload(tr *pkg.TransferPacket) error {
 	dirHash := pkg.HashPath(dirPath)
 	uploadPath := path.Join(tr.Email, dirHash.Filename)
 	uploadHash := pkg.HashPath(uploadPath)
-	fmt.Printf("\n%+v", uploadHash)
 	err = os.MkdirAll(uploadPath, 0755)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path.Join(uploadPath, fmt.Sprintf("%s_%s%s", tr.UploadedIn.UTC().Format("20060102150405"), uploadHash.Filename, ext)), packetBytes, 0755)
+	writeHash := path.Join(uploadPath, fmt.Sprintf("%s_%s%s", tr.UploadedIn.UTC().Format("20060102150405"), uploadHash.Filename, ext))
+	err = os.WriteFile(writeHash, packetBytes, 0755)
 	if err != nil {
 		return err
 	}

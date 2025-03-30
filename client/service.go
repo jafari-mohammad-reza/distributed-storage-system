@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -43,7 +42,6 @@ func Auth(email, password string) error {
 	defer resp.Body.Close()
 	var responseBody map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&responseBody)
-	fmt.Println("responseBody", responseBody)
 	if message, exist := responseBody["message"]; exist {
 		return errors.New(message.(string))
 	}

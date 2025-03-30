@@ -26,7 +26,7 @@ func InitStorageControll(serverId string, redisClient *redis.Client) error {
 }
 func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.WaitGroup) {
 	stream := "storage-stream"
-	group := "storage-index" 
+	group := "storage-index"
 	consumer := serverId
 	go db.CreateConsumerGroup(context.Background(), redisClient, stream, group)
 	go func() {
@@ -83,7 +83,8 @@ func HandleUploadedFile(tr *pkg.TransferPacket) error {
 	dirHash := pkg.HashPath(dirPath)
 	uploadPath := path.Join(tr.Email, dirHash.Filename)
 	uploadHash := pkg.HashPath(uploadPath)
-	err := uploadFile(tr, uploadHash.Filename)
+	writeHash := fmt.Sprintf("%s_%s", time.Now().UTC().Format("20060102150405"), uploadHash.Filename)
+	err := uploadFile(tr, writeHash)
 	if err != nil {
 		slog.Error("error inserting upload", "err", err)
 		return err
@@ -102,7 +103,7 @@ func HandleUploadedFile(tr *pkg.TransferPacket) error {
 			if err != nil {
 				slog.Error("error sending data to storage", "err", err)
 			}
-			updateFileStorages(uploadHash.Filename, storage.Id)
+			updateFileStorages(tr, writeHash, storage.Id)
 
 			defer wg.Done()
 		}(storage)

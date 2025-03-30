@@ -3,41 +3,42 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Password  string    `json:"password"`
-	CreatedAt time.Time `json:"created_at"`
-	Agents    []Agent   `json:"agents"`
-	Files     []File    `json:"files"`
+	ID        string  `json:"id"`
+	Email     string  `json:"email"`
+	Password  string  `json:"password"`
+	CreatedAt string  `json:"created_at"`
+	Agents    []Agent `json:"agents"`
+	Files     []File  `json:"files"`
 }
 
 type Agent struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	LastRequest time.Time `json:"last_request"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	LastRequest string `json:"last_request"`
 }
 
 type File struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	Path       string    `json:"path"`
-	UploadedAt time.Time `json:"uploaded_at"`
-	UploadedBy string     `json:"uploaded_by"`
-	Versions   []FileVersion
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	Path       string        `json:"path"`
+	UploadedAt string        `json:"uploaded_at"`
+	UploadedBy string        `json:"uploaded_by"`
+	Versions   []FileVersion `json:"versions"`
 }
 
 type FileVersion struct {
-	ID        string    `json:"id"`
-	Hash      string    `json:"hash"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string   `json:"id"`
+	Hash      string   `json:"hash"`
+	Storages  []string `json:"storages"`
+	CreatedAt string   `json:"created_at"`
 }
 
 func InsertMany(ctx context.Context, redisClient *redis.Client, data map[string]any) error {
@@ -118,4 +119,20 @@ func PopArray(ctx context.Context, redisClient *redis.Client, key, path, val str
 		return fmt.Errorf("failed to pop value from array at index %d: %w", index, err)
 	}
 	return nil
+}
+func GetArray(ctx context.Context, client *redis.Client, key, path string) ([]map[string]interface{}, error) {
+	result, err := client.JSONGet(ctx, key, path).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var data []map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &data); err != nil {
+		return nil, errors.New("failed to parse JSON data")
+	}
+
+	return data, nil
 }

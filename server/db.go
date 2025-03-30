@@ -31,6 +31,7 @@ func createUser(email, agent, password string) error {
 		Email:    email,
 		Agents:   agents,
 		Password: password,
+		Files:    []db.File{},
 	}
 	return db.Insert(context.Background(), redisClient, email, user)
 }
@@ -42,7 +43,6 @@ func findUser(email string) (*db.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("RESULT", result)
 	json.Unmarshal([]byte(result), &users)
 	if len(users) == 0 {
 		return nil, nil
@@ -99,32 +99,55 @@ func deleteAgent(email, agent string) error {
 }
 
 func uploadFile(tr *pkg.TransferPacket, uploadHash string) error {
-	_, err := findUser(tr.Email)
+	userFilesPath := "$.files[*]"
+	existingFiles, err := db.GetArray(context.Background(), redisClient, tr.Email, userFilesPath)
 	if err != nil {
 		return err
 	}
-	id := uuid.New().String()
-	versions := []db.FileVersion{}
-	versions = append(versions, db.FileVersion{
-		ID:        uuid.New().String(),
-		Hash:      uploadHash,
-		CreatedAt: time.Now(),
-	})
+
+	// Look for an existing file with the same name and path
+	for _, file := range existingFiles {
+		if file["name"] == tr.FileName && file["path"] == tr.Dir {
+			// Append a new version to the existing file
+			version := db.FileVersion{
+				ID:        uuid.New().String(),
+				Hash:      uploadHash,
+				Storages:  []string{},
+				CreatedAt: time.Now().Format(time.RFC3339),
+			}
+
+			fileVersionPath := fmt.Sprintf("$.files[?(@.name=='%s' && @.path=='%s')].versions", tr.FileName, tr.Dir)
+			versionJson, _ := json.Marshal(version)
+			return db.AppendArray(context.Background(), redisClient, tr.Email, string(versionJson), fileVersionPath)
+		}
+	}
+
+	// If file doesn't exist, create a new entry
 	upload := db.File{
-		ID:         id,
+		ID:         uuid.New().String(),
 		Name:       tr.FileName,
 		Path:       tr.Dir,
-		UploadedAt: tr.UploadedIn,
+		UploadedAt: tr.UploadedIn.Format(time.RFC3339),
 		UploadedBy: tr.Agent,
-		Versions:   versions,
+		Versions: []db.FileVersion{
+			{
+				ID:        uuid.New().String(),
+				Hash:      uploadHash,
+				Storages:  []string{},
+				CreatedAt: time.Now().Format(time.RFC3339),
+			},
+		},
 	}
-	return db.Insert(context.Background(), redisClient, uploadHash, upload)
+	uploadJson, _ := json.Marshal(upload)
+	return db.AppendArray(context.Background(), redisClient, tr.Email, string(uploadJson), "$.files")
 }
-func updateFileStorages(uploadHash, storageId string) error {
-	return db.AppendArray(context.Background(), redisClient, uploadHash, storageId, "$storages")
+func updateFileStorages(tr *pkg.TransferPacket, uploadHash, storageId string) error {
+	path := fmt.Sprintf("$.files[*].versions[?(@.hash=='%s')].storages", uploadHash)
+	id, _ := json.Marshal(storageId)
+	return db.AppendArray(context.Background(), redisClient, tr.Email, string(id), path)
 }
+
 func flushRedis() {
-	fmt.Println("flushing redis")
 	err := db.FlushRedis(context.Background(), redisClient)
 	if err != nil {
 		log.Error("failed to flush redis")
