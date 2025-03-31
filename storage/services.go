@@ -17,10 +17,9 @@ import (
 
 func ConnectToService(storageId string, port int, redisClient *redis.Client) {
 	var storages map[string]pkg.Storage
-
+	go db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": storageId, "Port": port})
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
-
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-sigChan
 		fmt.Println("Received termination signal, disconnecting storage:", storageId)
@@ -28,12 +27,8 @@ func ConnectToService(storageId string, port int, redisClient *redis.Client) {
 			"ID":   storageId,
 			"Port": port,
 		})
-
 		os.Exit(0)
 	}()
-
-	go db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": storageId, "Port": port})
-
 	for msg := range db.Subscribe(context.Background(), redisClient, "storage-update") {
 		json.Unmarshal([]byte(msg.Payload), &storages)
 		currentStorage := storages[storageId]
