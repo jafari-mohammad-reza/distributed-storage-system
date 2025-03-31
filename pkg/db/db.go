@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -109,7 +108,7 @@ func GetArray(ctx context.Context, client *redis.Client, key, path string) ([]ma
 
 	var data []map[string]interface{}
 	if err := json.Unmarshal([]byte(result), &data); err != nil {
-		return nil, errors.New("failed to parse JSON data")
+		return nil, fmt.Errorf("failed to parse JSON data: %s", err.Error())
 	}
 
 	return data, nil

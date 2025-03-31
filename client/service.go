@@ -32,7 +32,11 @@ func UploadFile(filePath string) error {
 	if err != nil {
 		slog.Error("error serializing file", "err", err)
 	}
-	return pkg.SendDataOverTcp(8000, int64(len(serialized)), serialized) // TODO: read server port from config
+	conn, err := pkg.SendDataOverTcp(8000, int64(len(serialized)), serialized) // TODO: read server port from config
+	if err != nil {
+		return err
+	}
+	return conn.Close()
 }
 func Auth(email, password string) error {
 	data, _ := json.Marshal(pkg.InvokeBody{Email: email, Password: password})

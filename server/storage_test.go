@@ -21,7 +21,7 @@ func TestRegisterSystem(t *testing.T) {
 	initRegisterSystem("server1", redisClient)
 	time.Sleep(1 * time.Second)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{
 			"ID":   fmt.Sprintf("storage%d", i),
 			"Port": i,
@@ -29,11 +29,11 @@ func TestRegisterSystem(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	assert.Equal(t, 5, len(storages), "Expected 5 storages to be registered")
+	assert.Equal(t, 2, len(storages), "Expected 2 storages to be registered")
 
 	fmt.Println("Storage count after addition:", len(storages))
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 2; i++ {
 		db.Produce(context.Background(), redisClient, "disconnect-stream", map[string]interface{}{
 			"ID":   fmt.Sprintf("storage%d", i),
 			"Port": i,

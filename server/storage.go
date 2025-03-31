@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -150,6 +151,14 @@ func HandleConnection(conn net.Conn) error {
 	return nil
 }
 func handleUpload(tr *pkg.TransferPacket) error {
+	email := tr.SenderMeta.Email
+	user, err := findUser(email)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
 	fileName := tr.Meta["FileName"]
 	dir := tr.Meta["Dir"]
 	ext := filepath.Ext(fileName)
@@ -158,7 +167,7 @@ func handleUpload(tr *pkg.TransferPacket) error {
 	uploadPath := path.Join(tr.Email, dirHash.Filename)
 	uploadHash := pkg.HashPath(uploadPath)
 	writeHash := fmt.Sprintf("%s_%s", time.Now().UTC().Format("20060102150405"), uploadHash.Filename)
-	err := uploadFile(tr, writeHash)
+	err = uploadFile(tr, writeHash)
 	if err != nil {
 		slog.Error("error inserting upload", "err", err)
 		return err
