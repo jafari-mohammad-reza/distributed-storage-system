@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/gob"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -83,7 +84,7 @@ type SenderMeta struct {
 	Application string
 }
 type TransferPacket struct {
-	Command string
+	Command      string
 	OriginalSize int64
 	Compressed   []byte
 	Meta         map[string]string
@@ -175,4 +176,31 @@ func HashPath(key string) PathKey {
 		Pathname: strings.Join(paths, "/"),
 		Filename: hashString,
 	}
+}
+
+func AppendJson(path, content string) error {
+	var data []string
+
+	file, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			data = []string{content}
+		} else {
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+	} else {
+		if err := json.Unmarshal(file, &data); err != nil {
+			return fmt.Errorf("failed to unmarshal JSON: %w", err)
+		}
+		data = append(data, content)
+	}
+	newData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	if err := os.WriteFile(path, newData, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }

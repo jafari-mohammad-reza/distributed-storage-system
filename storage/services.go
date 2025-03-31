@@ -9,13 +9,14 @@ import (
 	"os/signal"
 	"path"
 	"syscall"
+	"time"
 
 	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
 	"github.com/redis/go-redis/v9"
 )
 
-func ConnectToService(storageId string, port int, redisClient *redis.Client) {
+func connectToService(storageId string, port int, redisClient *redis.Client) {
 	var storages map[string]pkg.Storage
 	go db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": storageId, "Port": port})
 	sigChan := make(chan os.Signal, 1)
@@ -48,7 +49,7 @@ func ConnectToService(storageId string, port int, redisClient *redis.Client) {
 	}
 }
 func restoreData(storageId string) {}
-func HealthCheck(storageId string, redisClient *redis.Client) {
+func healthCheck(storageId string, redisClient *redis.Client) {
 	channel := fmt.Sprintf("%s-health", storageId)
 	msg := <-db.Subscribe(context.Background(), redisClient, channel)
 	if msg.Payload == "ping" {
@@ -56,7 +57,7 @@ func HealthCheck(storageId string, redisClient *redis.Client) {
 	}
 }
 
-func HandleConnection(buf *bytes.Buffer) error {
+func handleConnection(buf *bytes.Buffer) error {
 	tr, err := pkg.DeserializePacket(buf.Bytes())
 	if err != nil {
 		panic(err)
@@ -68,17 +69,44 @@ func HandleConnection(buf *bytes.Buffer) error {
 	return nil
 }
 func handleUpload(tr *pkg.TransferPacket) error {
-	// we should keep a log file that saved recieved upload hashes and paths in times so other storges can vcatch up their data with each other base on disconnection gap
 	uploadPath := tr.Meta["UploadPath"]
 	uploadHash := tr.Meta["UploadHash"]
-	err := os.MkdirAll(uploadPath, 0755)
+	err := os.MkdirAll(path.Join("storage", "uploads", uploadPath), 0755)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path.Join(uploadPath, uploadHash), tr.Compressed, 0755)
+	err = os.WriteFile(path.Join("storage", "uploads", uploadPath, uploadHash), tr.Compressed, 0755)
 	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+	err = recordTransferLog(tr)
+	if err != nil {
+		fmt.Println(err.Error())
 		return err
 	}
 	return nil
 
+}
+
+func recordTransferLog(tr *pkg.TransferPacket) error {
+	today := time.Now().Format(time.DateOnly)
+	logPath := path.Join("storage", "logs", fmt.Sprintf("%s.json", today))
+	if _, err := os.Stat(path.Join("storage", "logs")); os.IsExist(err) {
+		fmt.Println("reating shit")
+		if err := os.MkdirAll(path.Join("storage", "logs"), 0755); err != nil {
+			return err
+		}
+	}
+	tr.Compressed = nil
+	tr.Meta["UploadedIn"] = time.Now().Format(time.DateOnly)
+	data, err := json.Marshal(tr)
+	if err != nil {
+		return err
+	}
+	err = pkg.AppendJson(logPath, string(data))
+	if err != nil {
+		return err
+	}
+	return nil
 }
