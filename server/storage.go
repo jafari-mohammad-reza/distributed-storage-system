@@ -25,7 +25,7 @@ func InitStorageControll(serverId string, redisClient *redis.Client) error {
 	mu.Lock()
 	defer mu.Unlock()
 	storages = loadStoragesFromRedis(redisClient)
-	go initRegisterSystem(serverId, redisClient, nil)
+	go initRegisterSystem(serverId, redisClient)
 	go healthCheckStorages(redisClient)
 
 	select {}
@@ -57,14 +57,13 @@ func loadStoragesFromRedis(redisClient *redis.Client) map[string]pkg.Storage {
 	return activeStorages
 }
 
-func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.WaitGroup) {
+func initRegisterSystem(serverId string, redisClient *redis.Client) {
 	stream := "storage-stream"
 	disconnctStream := "disconnect-stream"
 	group := "storage-index"
 	consumer := serverId
-
-	go db.CreateConsumerGroup(context.Background(), redisClient, stream, group)
-	go db.CreateConsumerGroup(context.Background(), redisClient, disconnctStream, group)
+	db.CreateConsumerGroup(context.Background(), redisClient, stream, group)
+	db.CreateConsumerGroup(context.Background(), redisClient, disconnctStream, group)
 
 	go func() {
 		for msg := range db.Consume(context.Background(), redisClient, stream, group, consumer) {
@@ -92,10 +91,6 @@ func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.Wai
 
 			storagesMsg, _ := json.Marshal(storages)
 			db.Publish(context.Background(), redisClient, "storage-update", string(storagesMsg))
-
-			if wg != nil {
-				wg.Done()
-			}
 		}
 	}()
 	go func() {
