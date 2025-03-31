@@ -1,7 +1,7 @@
 package pkg
 
 import (
-	"bytes"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -15,7 +15,7 @@ func TestInitTcpListener(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := InitTcpListener(8080, func(buf *bytes.Buffer) error {
+		err := InitTcpListener(8080, func(conn net.Conn) error {
 			return nil
 		})
 		assert.Nil(t, err)
@@ -34,8 +34,9 @@ func TestInitTcpListener(t *testing.T) {
 	if err != nil {
 		assert.Nil(t, err)
 	}
-	err = SendDataOverTcp(8080, int64(len(serialized)), serialized)
+	conn, err := SendDataOverTcp(8080, int64(len(serialized)), serialized)
 	assert.Nil(t, err)
-
+	assert.NotNil(t, conn)
+	defer conn.Close()
 	wg.Wait()
 }

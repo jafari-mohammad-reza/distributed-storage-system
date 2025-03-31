@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -22,6 +23,7 @@ func NewRedisClient() *redis.Client {
 	})
 }
 func Publish(ctx context.Context, client *redis.Client, channel, message string) {
+	fmt.Println("pulishing new message to ", channel, message)
 	err := client.Publish(ctx, channel, message).Err()
 	if err != nil {
 		slog.Error("could not publish:", "Error", err)
@@ -32,8 +34,8 @@ func Subscribe(ctx context.Context, client *redis.Client, channel string) <-chan
 	sub := client.Subscribe(ctx, channel)
 	return sub.Channel()
 }
-func DeleteStream(ctx context.Context,client *redis.Client , stream , id string) error{
-	return client.XDel(ctx , stream , id).Err()
+func DeleteStream(ctx context.Context, client *redis.Client, stream, id string) error {
+	return client.XDel(ctx, stream, id).Err()
 }
 func Produce(ctx context.Context, client *redis.Client, stream string, data map[string]interface{}) {
 	id, err := client.XAdd(ctx, &redis.XAddArgs{

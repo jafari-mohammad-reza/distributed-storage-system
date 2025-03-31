@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha1"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -120,6 +122,98 @@ func CompressFile(filePath string, senderMeta SenderMeta) (*TransferPacket, erro
 	}
 
 	return packet, nil
+}
+func CompressDir(dirPath string) (*bytes.Buffer, error) {
+	buf := new(bytes.Buffer)
+	gzipWriter, _ := gzip.NewWriterLevel(buf, gzip.BestCompression)
+	tarWriter := tar.NewWriter(gzipWriter)
+
+	err := filepath.Walk(dirPath, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("error accessing file %s: %w", filePath, err)
+		}
+		relPath, _ := filepath.Rel(dirPath, filePath)
+		header, err := tar.FileInfoHeader(info, relPath)
+		if err != nil {
+			return fmt.Errorf("failed to create tar header for %s: %w", filePath, err)
+		}
+		header.Name = relPath
+
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return fmt.Errorf("failed to write tar header for %s: %w", filePath, err)
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to open file %s: %w", filePath, err)
+		}
+		defer file.Close()
+
+		if _, err := io.Copy(tarWriter, file); err != nil {
+			return fmt.Errorf("failed to write file data for %s: %w", filePath, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	tarWriter.Close()
+	gzipWriter.Close()
+
+	return buf, nil
+}
+
+func DecompressBytes(data []byte, outputDir string) error {
+	byteReader := bytes.NewReader(data)
+
+	gzipReader, err := gzip.NewReader(byteReader)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		targetPath := filepath.Join(outputDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(targetPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+			}
+
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+				return fmt.Errorf("failed to create parent directories: %w", err)
+			}
+
+			outFile, err := os.Create(targetPath)
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+			}
+
+			_, err = io.Copy(outFile, tarReader)
+			outFile.Close()
+			if err != nil {
+				return fmt.Errorf("failed to write file %s: %w", targetPath, err)
+			}
+		}
+	}
+	return nil
 }
 
 func SerializePacket(packet *TransferPacket) ([]byte, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"os"
 	"path"
 
@@ -15,7 +16,8 @@ import (
 func InitStorage() error {
 	id, _ := uuid.NewUUID()
 	redisClient := db.NewRedisClient()
-	port := 8081
+	port := rand.IntN(9000-8080) + 8080
+	fmt.Println("Storage port", port)
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Application crashed, disconnecting storage:", id.String())

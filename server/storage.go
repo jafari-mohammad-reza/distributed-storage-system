@@ -1,11 +1,11 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -61,6 +61,7 @@ func initRegisterSystem(serverId string, redisClient *redis.Client) {
 	stream := "storage-stream"
 	disconnctStream := "disconnect-stream"
 	group := "storage-index"
+	updateStream := "storage-update"
 	consumer := serverId
 	db.CreateConsumerGroup(context.Background(), redisClient, stream, group)
 	db.CreateConsumerGroup(context.Background(), redisClient, disconnctStream, group)
@@ -77,20 +78,16 @@ func initRegisterSystem(serverId string, redisClient *redis.Client) {
 					slog.Error("error adding new storage", "err", err.Error())
 				}
 				redisClient.Set(context.Background(), fmt.Sprintf("storage:%s:port", storageId), portNum, 0)
-				mu.Lock()
 				storages[storageId] = pkg.Storage{
 					Id:         storageId,
 					Index:      len(storages) + 1,
 					LastUpdate: time.Now(),
 					Port:       portNum,
 				}
-				mu.Unlock()
 			}
-
-			db.DeleteStream(context.Background(), redisClient, "storage-stream", msg.ID)
-
+			db.DeleteStream(context.Background(), redisClient, stream, msg.ID)
 			storagesMsg, _ := json.Marshal(storages)
-			db.Publish(context.Background(), redisClient, "storage-update", string(storagesMsg))
+			db.Publish(context.Background(), redisClient, updateStream, string(storagesMsg))
 		}
 	}()
 	go func() {
@@ -103,10 +100,7 @@ func initRegisterSystem(serverId string, redisClient *redis.Client) {
 					slog.Error("error removing disconnected storage", "err", err.Error())
 				}
 				redisClient.Del(context.Background(), fmt.Sprintf("storage:%s:port", storageId))
-				mu.Lock()
-
 				delete(storages, storageId)
-				mu.Unlock()
 			}
 
 			db.DeleteStream(context.Background(), redisClient, disconnctStream, msg.ID)
@@ -140,7 +134,11 @@ func healthCheckStorages(redisClient *redis.Client) {
 		}
 	}
 }
-func HandleConnection(buf *bytes.Buffer) error {
+func HandleConnection(conn net.Conn) error {
+	buf, err := pkg.GetIncomingBuf(conn)
+	if err != nil {
+		panic(err) // TODO: implement a proper erro handler
+	}
 	tr, err := pkg.DeserializePacket(buf.Bytes())
 	if err != nil {
 		panic(err)
@@ -177,12 +175,12 @@ func handleUpload(tr *pkg.TransferPacket) error {
 			if err != nil {
 				slog.Error("error serializing file", "err", err)
 			}
-			err = pkg.SendDataOverTcp(storage.Port, int64(len(serialized)), serialized)
+			conn, err := pkg.SendDataOverTcp(storage.Port, int64(len(serialized)), serialized)
 			if err != nil {
 				slog.Error("error sending data to storage", "err", err)
 			}
 			updateFileStorages(tr, writeHash, storage.Id)
-
+			defer conn.Close()
 			defer wg.Done()
 		}(storage)
 	}
