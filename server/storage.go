@@ -18,37 +18,103 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var storages map[string]pkg.Storage // map storage id to storage
+var storages map[string]pkg.Storage // map storage id to storage => if two storage connect at same time one will read from an empty storage we need to fix that
+var mu sync.Mutex
+
 func InitStorageControll(serverId string, redisClient *redis.Client) error {
-	storages = make(map[string]pkg.Storage)
+	mu.Lock()
+	defer mu.Unlock()
+	storages = loadStoragesFromRedis(redisClient)
 	go initRegisterSystem(serverId, redisClient, nil)
 	go healthCheckStorages(redisClient)
+
 	select {}
 }
+func loadStoragesFromRedis(redisClient *redis.Client) map[string]pkg.Storage {
+	activeStorages := make(map[string]pkg.Storage)
+
+	storageIds, err := redisClient.SMembers(context.Background(), "alive-storages").Result()
+	if err != nil {
+		slog.Error("Failed to fetch active storages", "err", err)
+		return activeStorages
+	}
+
+	for _, storageId := range storageIds {
+		port, err := redisClient.Get(context.Background(), fmt.Sprintf("storage:%s:port", storageId)).Int()
+		if err != nil {
+			slog.Warn("Missing port for storage", "storageId", storageId)
+			continue
+		}
+
+		activeStorages[storageId] = pkg.Storage{
+			Id:         storageId,
+			Index:      len(activeStorages) + 1,
+			LastUpdate: time.Now(),
+			Port:       port,
+		}
+	}
+
+	return activeStorages
+}
+
 func initRegisterSystem(serverId string, redisClient *redis.Client, wg *sync.WaitGroup) {
 	stream := "storage-stream"
+	disconnctStream := "disconnect-stream"
 	group := "storage-index"
 	consumer := serverId
+
 	go db.CreateConsumerGroup(context.Background(), redisClient, stream, group)
+	go db.CreateConsumerGroup(context.Background(), redisClient, disconnctStream, group)
+
 	go func() {
 		for msg := range db.Consume(context.Background(), redisClient, stream, group, consumer) {
 			storageId := msg.Values["ID"].(string)
 			port := msg.Values["Port"].(string)
 			portNum, _ := strconv.Atoi(port)
+
 			if _, exists := storages[storageId]; !exists {
+				err := redisClient.SAdd(context.Background(), "alive-storages", storageId).Err()
+				if err != nil {
+					slog.Error("error adding new storage", "err", err.Error())
+				}
+				redisClient.Set(context.Background(), fmt.Sprintf("storage:%s:port", storageId), portNum, 0)
+				mu.Lock()
 				storages[storageId] = pkg.Storage{
 					Id:         storageId,
 					Index:      len(storages) + 1,
 					LastUpdate: time.Now(),
 					Port:       portNum,
 				}
-				storagesMsg, _ := json.Marshal(storages)
-				db.DeleteStream(context.Background(), redisClient, "storage-stream", msg.ID)
-				db.Publish(context.Background(), redisClient, "storage-update", string(storagesMsg))
+				mu.Unlock()
 			}
+
+			db.DeleteStream(context.Background(), redisClient, "storage-stream", msg.ID)
+
+			storagesMsg, _ := json.Marshal(storages)
+			db.Publish(context.Background(), redisClient, "storage-update", string(storagesMsg))
+
 			if wg != nil {
 				wg.Done()
 			}
+		}
+	}()
+	go func() {
+		for msg := range db.Consume(context.Background(), redisClient, disconnctStream, group, consumer) {
+			storageId := msg.Values["ID"].(string)
+
+			if _, exists := storages[storageId]; exists {
+				err := redisClient.SRem(context.Background(), "alive-storages", storageId).Err()
+				if err != nil {
+					slog.Error("error removing disconnected storage", "err", err.Error())
+				}
+				redisClient.Del(context.Background(), fmt.Sprintf("storage:%s:port", storageId))
+				mu.Lock()
+
+				delete(storages, storageId)
+				mu.Unlock()
+			}
+
+			db.DeleteStream(context.Background(), redisClient, disconnctStream, msg.ID)
 		}
 	}()
 }

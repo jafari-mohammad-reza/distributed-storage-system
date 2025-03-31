@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
+	"syscall"
 
 	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/jafari-mohammad-reza/dotsync/pkg/db"
@@ -14,22 +16,37 @@ import (
 )
 
 func ConnectToService(storageId string, port int, redisClient *redis.Client) {
-	var strorages map[string]pkg.Storage
+	var storages map[string]pkg.Storage
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
+
+	go func() {
+		<-sigChan
+		fmt.Println("Received termination signal, disconnecting storage:", storageId)
+		db.Produce(context.Background(), redisClient, "disconnect-stream", map[string]interface{}{
+			"ID":   storageId,
+			"Port": port,
+		})
+
+		os.Exit(0)
+	}()
+
 	go db.Produce(context.Background(), redisClient, "storage-stream", map[string]interface{}{"ID": storageId, "Port": port})
+
 	for msg := range db.Subscribe(context.Background(), redisClient, "storage-update") {
-		json.Unmarshal([]byte(msg.Payload), &strorages)
-		currentStorage := strorages[storageId]
-		if len(strorages) > 1 {
+		json.Unmarshal([]byte(msg.Payload), &storages)
+		currentStorage := storages[storageId]
+		if len(storages) > 1 {
 			var previousStorage pkg.Storage
-			for _, storage := range strorages {
+			for _, storage := range storages {
 				if storage.Index == currentStorage.Index-1 {
 					previousStorage = storage
 					break
 				}
-				continue
 			}
 			if previousStorage.Index != 0 {
-				// fetch exist data from previous index
+				// Fetch existing data from previous storage
 				go restoreData(previousStorage.Id)
 			}
 		}
@@ -56,6 +73,7 @@ func HandleConnection(buf *bytes.Buffer) error {
 	return nil
 }
 func handleUpload(tr *pkg.TransferPacket) error {
+	// we should keep a log file that saved recieved upload hashes and paths in times so other storges can vcatch up their data with each other base on disconnection gap
 	uploadPath := tr.Meta["UploadPath"]
 	uploadHash := tr.Meta["UploadHash"]
 	err := os.MkdirAll(uploadPath, 0755)
