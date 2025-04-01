@@ -48,23 +48,25 @@ func connectToService(storageId string, port int, redisClient *redis.Client) {
 			}
 			if previousStorage.Index != 0 {
 				// Fetch existing data from previous storage
-				go restoreData(storageId, &previousStorage)
+				go restoreData(storageId, &previousStorage,"")
 			}
 		}
 	}
 }
-func restoreData(id string, storage *pkg.Storage) {
-	fmt.Println("restoring data", storage)
+func restoreData(id string, storage *pkg.Storage, startSpan string) {
+	meta := map[string]string{"Storage": id}
+	if startSpan != "" {
+		meta["StartSpan"] = startSpan
+	}
 	tr := pkg.TransferPacket{
 		Command:    "cacheup",
 		Compressed: nil,
 		SenderMeta: pkg.SenderMeta{},
-		Meta:       map[string]string{"StartSpan": time.Now().AddDate(0, 0, -1).Format(time.DateOnly), "Storage": id},
+		Meta:       meta,
 	}
 	packet, _ := pkg.SerializePacket(&tr)
 	conn, err := pkg.SendDataOverTcp(storage.Port, int64(len(packet)), packet)
 	if err != nil {
-		fmt.Println("send cacheup err", err.Error())
 		return
 	}
 	if conn != nil {
@@ -121,17 +123,14 @@ func handleUpload(tr *pkg.TransferPacket) error {
 	uploadHash := tr.Meta["UploadHash"]
 	err := os.MkdirAll(path.Join("storage", "uploads", uploadPath), 0755)
 	if err != nil {
-		fmt.Printf("err.Error(): %v\n", err.Error())
 		return err
 	}
 	err = os.WriteFile(path.Join("storage", "uploads", uploadPath, uploadHash), tr.Compressed, 0755)
 	if err != nil {
-		fmt.Println(err.Error())
 		return err
 	}
 	err = recordTransferLog(tr)
 	if err != nil {
-		fmt.Println(err.Error())
 		return err
 	}
 	return nil
@@ -143,12 +142,10 @@ func handleCacheUp(tr *pkg.TransferPacket, conn net.Conn) error {
 		gapItems, err := loadGapTransferPackets(startSpan)
 		if err != nil {
 
-			fmt.Printf("err.Error(): %v\n", err.Error())
 			return err
 		}
 		backupPath := path.Join("storage", "backups", fmt.Sprintf("%s-%s-backups", tr.Meta["Storage"], startSpan))
 		if err := os.Mkdir(backupPath, 0755); err != nil {
-			fmt.Printf("err.Error(): %v\n", err.Error())
 			return err
 		}
 		for _, item := range gapItems {
@@ -157,25 +154,20 @@ func handleCacheUp(tr *pkg.TransferPacket, conn net.Conn) error {
 				uploadPath := path.Join(backupPath, item.Meta["UploadPath"])
 				if err := os.MkdirAll(uploadPath, 0755); err != nil {
 
-					fmt.Printf("err.Error(): %v\n", err.Error())
 					return err
 				}
 				fileContent, _ := os.ReadFile(filePath)
 				if err := os.WriteFile(path.Join(uploadPath, item.Meta["UploadHash"]), fileContent, 0755); err != nil {
 
-					fmt.Printf("err.Error(): %v\n", err.Error())
 					return err
 				}
 			}
 		}
 
 		if err := sendCompressedDir(backupPath, conn); err != nil {
-
-			fmt.Printf("err.Error(): %v\n", err.Error())
 			return err
 		}
 		if err := os.RemoveAll(backupPath); err != nil {
-			fmt.Printf("err.Error(): %v\n", err.Error())
 			return err
 		}
 
@@ -216,7 +208,6 @@ func loadGapTransferPackets(startSpan string) ([]pkg.TransferPacket, error) {
 
 	for t := startTime; !t.After(todayTime); t = t.AddDate(0, 0, 1) {
 		logPath := path.Join("storage", "logs", fmt.Sprintf("%s.json", t.Format(time.DateOnly)))
-		fmt.Println("Reading file:", logPath)
 
 		logs, err := os.ReadFile(logPath)
 		if err != nil {
@@ -245,7 +236,6 @@ func recordTransferLog(tr *pkg.TransferPacket) error {
 	today := time.Now().Format(time.DateOnly)
 	logPath := path.Join("storage", "logs", fmt.Sprintf("%s.json", today))
 	if _, err := os.Stat(path.Join("storage", "logs")); os.IsExist(err) {
-		fmt.Println("reating shit")
 		if err := os.MkdirAll(path.Join("storage", "logs"), 0755); err != nil {
 			return err
 		}
