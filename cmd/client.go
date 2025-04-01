@@ -1,9 +1,13 @@
 package main
 
-import "github.com/jafari-mohammad-reza/dotsync/client"
+import (
+	"log/slog"
+
+	"github.com/jafari-mohammad-reza/dotsync/client"
+)
 
 func main() {
 	if err := client.InitCli(); err != nil {
-		panic(err)
+		slog.Error("Error init cli", "err", err.Error())
 	}
 }

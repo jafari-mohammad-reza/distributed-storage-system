@@ -48,7 +48,7 @@ func connectToService(storageId string, port int, redisClient *redis.Client) {
 			}
 			if previousStorage.Index != 0 {
 				// Fetch existing data from previous storage
-				go restoreData(storageId, &previousStorage,"")
+				go restoreData(storageId, &previousStorage, "")
 			}
 		}
 	}
@@ -104,11 +104,11 @@ func healthCheck(storageId string, redisClient *redis.Client) {
 func handleConnection(conn net.Conn) error {
 	buf, err := pkg.GetIncomingBuf(conn)
 	if err != nil {
-		panic(err)
+		slog.Error("Error getting incoming data", "err", err.Error())
 	}
 	tr, err := pkg.DeserializePacket(buf.Bytes())
 	if err != nil {
-		panic(err)
+		slog.Error("Error DeserializePacket", "err", err.Error())
 	}
 	switch tr.Command {
 	case "upload":

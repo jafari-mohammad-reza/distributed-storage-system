@@ -2,9 +2,21 @@ package client
 
 import (
 	"fmt"
+	"log/slog"
 
+	"github.com/jafari-mohammad-reza/dotsync/pkg"
 	"github.com/spf13/cobra"
 )
+
+var cfg *pkg.ClientConfig
+
+func init() {
+	config, err := pkg.GetClientConfig()
+	if err != nil {
+		slog.Error("Error init client config", "err", err.Error())
+	}
+	cfg = config
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "dss",

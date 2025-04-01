@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -32,7 +33,7 @@ func UploadFile(filePath string) error {
 	if err != nil {
 		slog.Error("error serializing file", "err", err)
 	}
-	conn, err := pkg.SendDataOverTcp(8000, int64(len(serialized)), serialized) // TODO: read server port from config
+	conn, err := pkg.SendDataOverTcp(cfg.ServerTcpPort, int64(len(serialized)), serialized) 
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ func UploadFile(filePath string) error {
 }
 func Auth(email, password string) error {
 	data, _ := json.Marshal(pkg.InvokeBody{Email: email, Password: password})
-	resp, err := http.Post("http://localhost:8080/api/invoke-token", "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post(fmt.Sprintf("http://%s/api/invoke-token", cfg.ServerAddr), "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}

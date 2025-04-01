@@ -115,7 +115,13 @@ func uploadFile(tr *pkg.TransferPacket, uploadHash string) error {
 			return db.AppendArray(context.Background(), redisClient, tr.Email, string(versionJson), fileVersionPath)
 		}
 	}
-	err = db.UpdatePath(context.Background(), redisClient, tr.Email, fmt.Sprintf("$.agents[?(@.name=='%s')].last_request", tr.Agent), time.Now().Format(time.DateOnly))
+	err = db.UpdatePath(
+		context.Background(),
+		redisClient,
+		tr.Email,
+		fmt.Sprintf("$.agents[0][?(@.name=='%s')].last_request", tr.Agent),
+		time.Now().Format(time.DateOnly),
+	)
 	if err != nil {
 		return err
 	}

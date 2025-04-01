@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log/slog"
+
 	"github.com/jafari-mohammad-reza/dotsync/storage"
 )
 
@@ -10,7 +12,7 @@ func main() {
 	// subscribe to a channel using its index to give data to next index
 	// iof its the 0 index it will just create its own file system
 	if err := storage.InitStorage(); err != nil {
-		panic(err)
+		slog.Error("Error init storage", "err", err.Error())
 	}
 	select {}
 }

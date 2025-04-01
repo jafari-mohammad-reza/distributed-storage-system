@@ -109,12 +109,11 @@ func initRegisterSystem(serverId string, redisClient *redis.Client) {
 	}()
 }
 func healthCheckStorages(redisClient *redis.Client) {
-	// TODO: read times from env
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(time.Duration(cfg.HealthcheckInterval) * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
 		for _, storage := range storages {
-			if time.Since(storage.LastUpdate) > 10*time.Minute {
+			if time.Since(storage.LastUpdate) > time.Duration(cfg.HealthCheckTimeout)*time.Minute {
 				channel := fmt.Sprintf("%s-health", storage.Id)
 				redisClient.Publish(context.Background(), channel, "ping")
 
@@ -138,11 +137,11 @@ func healthCheckStorages(redisClient *redis.Client) {
 func HandleConnection(conn net.Conn) error {
 	buf, err := pkg.GetIncomingBuf(conn)
 	if err != nil {
-		panic(err) // TODO: implement a proper erro handler
+		slog.Error("Error getting incoming data" ,"err",err.Error())
 	}
 	tr, err := pkg.DeserializePacket(buf.Bytes())
 	if err != nil {
-		panic(err)
+		slog.Error("Error DeserializePacket","err",err.Error())
 	}
 	switch tr.Command {
 	case "upload":
