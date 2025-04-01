@@ -37,7 +37,7 @@ func InitStorage() error {
 	return nil
 }
 func initFileSystem() error {
-	dirs := []string{"logs", "uploads", "backups"}
+	dirs := []string{ "logs", "uploads", "backups"}
 	for _, dir := range dirs {
 		if err := os.MkdirAll(path.Join("storage", dir), 0755); err != nil {
 			return err

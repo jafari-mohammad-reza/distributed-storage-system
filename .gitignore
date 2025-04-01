@@ -1,3 +1,7 @@
 database.sqlite
 data
 tmp/
+storage/uploads
+storage/logs
+storage/backups
+backedup

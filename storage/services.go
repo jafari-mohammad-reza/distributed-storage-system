@@ -48,17 +48,18 @@ func connectToService(storageId string, port int, redisClient *redis.Client) {
 			}
 			if previousStorage.Index != 0 {
 				// Fetch existing data from previous storage
-				go restoreData(&previousStorage)
+				go restoreData(storageId, &previousStorage)
 			}
 		}
 	}
 }
-func restoreData(storage *pkg.Storage) {
+func restoreData(id string, storage *pkg.Storage) {
 	fmt.Println("restoring data", storage)
 	tr := pkg.TransferPacket{
 		Command:    "cacheup",
 		Compressed: nil,
 		SenderMeta: pkg.SenderMeta{},
+		Meta:       map[string]string{"StartSpan": time.Now().AddDate(0, 0, -1).Format(time.DateOnly), "Storage": id},
 	}
 	packet, _ := pkg.SerializePacket(&tr)
 	conn, err := pkg.SendDataOverTcp(storage.Port, int64(len(packet)), packet)
@@ -120,6 +121,7 @@ func handleUpload(tr *pkg.TransferPacket) error {
 	uploadHash := tr.Meta["UploadHash"]
 	err := os.MkdirAll(path.Join("storage", "uploads", uploadPath), 0755)
 	if err != nil {
+		fmt.Printf("err.Error(): %v\n", err.Error())
 		return err
 	}
 	err = os.WriteFile(path.Join("storage", "uploads", uploadPath, uploadHash), tr.Compressed, 0755)
@@ -136,12 +138,56 @@ func handleUpload(tr *pkg.TransferPacket) error {
 
 }
 func handleCacheUp(tr *pkg.TransferPacket, conn net.Conn) error {
-	fmt.Println("Caching up")
 	startSpan := tr.Meta["StartSpan"]
-	if startSpan == "" {
-	}
+	if startSpan != "" {
+		gapItems, err := loadGapTransferPackets(startSpan)
+		if err != nil {
 
-	dir, err := pkg.CompressDir(path.Join("storage", "uploads"))
+			fmt.Printf("err.Error(): %v\n", err.Error())
+			return err
+		}
+		backupPath := path.Join("storage", "backups", fmt.Sprintf("%s-%s-backups", tr.Meta["Storage"], startSpan))
+		if err := os.Mkdir(backupPath, 0755); err != nil {
+			fmt.Printf("err.Error(): %v\n", err.Error())
+			return err
+		}
+		for _, item := range gapItems {
+			if item.Command == "upload" {
+				filePath := path.Join(item.Meta["UploadPath"], item.Meta["UploadHash"])
+				uploadPath := path.Join(backupPath, item.Meta["UploadPath"])
+				if err := os.MkdirAll(uploadPath, 0755); err != nil {
+
+					fmt.Printf("err.Error(): %v\n", err.Error())
+					return err
+				}
+				fileContent, _ := os.ReadFile(filePath)
+				if err := os.WriteFile(path.Join(uploadPath, item.Meta["UploadHash"]), fileContent, 0755); err != nil {
+
+					fmt.Printf("err.Error(): %v\n", err.Error())
+					return err
+				}
+			}
+		}
+
+		if err := sendCompressedDir(backupPath, conn); err != nil {
+
+			fmt.Printf("err.Error(): %v\n", err.Error())
+			return err
+		}
+		if err := os.RemoveAll(backupPath); err != nil {
+			fmt.Printf("err.Error(): %v\n", err.Error())
+			return err
+		}
+
+		return nil
+	}
+	if err := sendCompressedDir(path.Join("storage", "uploads"), conn); err != nil {
+		return err
+	}
+	return nil
+}
+func sendCompressedDir(dirPath string, conn net.Conn) error {
+	dir, err := pkg.CompressDir(dirPath)
 	if err != nil {
 		fmt.Println("compressing dir erro", err.Error())
 		return err
@@ -159,8 +205,41 @@ func handleCacheUp(tr *pkg.TransferPacket, conn net.Conn) error {
 	return nil
 }
 
-func loadTransferLog() ([]pkg.TransferPacket, error) {
-	return nil, nil
+func loadGapTransferPackets(startSpan string) ([]pkg.TransferPacket, error) {
+	startTime, err := time.Parse(time.DateOnly, startSpan)
+	if err != nil {
+		return nil, err
+	}
+
+	todayTime := time.Now()
+	var data []string
+
+	for t := startTime; !t.After(todayTime); t = t.AddDate(0, 0, 1) {
+		logPath := path.Join("storage", "logs", fmt.Sprintf("%s.json", t.Format(time.DateOnly)))
+		fmt.Println("Reading file:", logPath)
+
+		logs, err := os.ReadFile(logPath)
+		if err != nil {
+			fmt.Printf("Error reading file %s: %v\n", logPath, err)
+			continue
+		}
+
+		var tempData []string
+		if err := json.Unmarshal(logs, &tempData); err != nil {
+			fmt.Printf("Error unmarshaling file %s: %v\n", logPath, err)
+			continue
+		}
+
+		data = append(data, tempData...)
+	}
+	var items []pkg.TransferPacket
+	for _, item := range data {
+		var res pkg.TransferPacket
+		json.Unmarshal([]byte(item), &res)
+		items = append(items, res)
+	}
+
+	return items, nil
 }
 func recordTransferLog(tr *pkg.TransferPacket) error {
 	today := time.Now().Format(time.DateOnly)
