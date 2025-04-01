@@ -24,7 +24,7 @@ func createUser(email, agent, password string) error {
 	if user, err := findUser(email); err == nil && user != nil {
 		return errors.New("email already exists")
 	}
-	agents := []db.Agent{{Name: agent}}
+	agents := []db.Agent{{Name: agent, LastRequest: time.Now().Format(time.DateOnly)}}
 	id := uuid.New().String()
 	user := db.User{
 		ID:       id,
@@ -71,7 +71,7 @@ func updateAgents(email, agent string) error {
 	if exists {
 		return nil
 	}
-	newAgent, _ := json.Marshal(db.Agent{Name: agent})
+	newAgent, _ := json.Marshal(db.Agent{Name: agent, LastRequest: time.Now().Format(time.DateOnly)})
 	return db.AppendArray(context.Background(), redisClient, email, newAgent, "$.agents")
 }
 
@@ -115,7 +115,10 @@ func uploadFile(tr *pkg.TransferPacket, uploadHash string) error {
 			return db.AppendArray(context.Background(), redisClient, tr.Email, string(versionJson), fileVersionPath)
 		}
 	}
-
+	err = db.UpdatePath(context.Background(), redisClient, tr.Email, fmt.Sprintf("$.agents[?(@.name=='%s')].last_request", tr.Agent), time.Now().Format(time.DateOnly))
+	if err != nil {
+		return err
+	}
 	uploadedIn, _ := time.Parse("2006-01-02T15:04:05.000Zs", tr.Meta["UploadedIn"])
 	upload := db.File{
 		ID:         uuid.New().String(),

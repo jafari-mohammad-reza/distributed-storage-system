@@ -57,7 +57,13 @@ func Insert(ctx context.Context, redisClient *redis.Client, key string, val any)
 	}
 	return nil
 }
-
+func UpdatePath(ctx context.Context, redisClient *redis.Client, key, path, val string) error {
+	_, err := redisClient.JSONSet(ctx, key, path, val).Result()
+	if err != nil {
+		return fmt.Errorf("failed to update key %s: %w", key, err)
+	}
+	return nil
+}
 func Get(ctx context.Context, redisClient *redis.Client, key string) (string, error) {
 	result, err := redisClient.JSONGet(ctx, key, "$").Result()
 	if err == redis.Nil {
