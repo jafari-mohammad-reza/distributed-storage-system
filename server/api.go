@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-playground/validator/v10"
@@ -25,9 +26,36 @@ func InitHttpServer() error {
 	api := server.Group("/api")
 	api.POST("/invoke-token", invokeToken)
 	api.GET("/revoke-token", revokeToken)
+	api.GET("/upload-list", uploadList)
 	return server.Start(":8080")
 }
-
+func validateToken(token string) (string, error) {
+	claims, err := pkg.DecodeToken(token)
+	if err != nil {
+		return "", err
+	}
+	email := claims["email"].(string)
+	if email == "" {
+		return "", errors.New("invalid token")
+	}
+	return email, nil
+}
+func uploadList(c echo.Context) error {
+	token := c.Request().Header.Get("Authorization")
+	email, err := validateToken(token)
+	if err != nil {
+		return c.JSON(401, map[string]interface{}{
+			"message": fmt.Sprintf("invalid token %s", err.Error()),
+		})
+	}
+	uploads, err := getUserUploads(email)
+	if err != nil {
+		return c.JSON(500, map[string]interface{}{
+			"message": err.Error(),
+		})
+	}
+	return c.JSON(200, uploads)
+}
 func invokeToken(c echo.Context) error {
 	var body pkg.InvokeBody
 	if err := c.Bind(&body); err != nil {

@@ -149,7 +149,30 @@ func updateFileStorages(tr *pkg.TransferPacket, uploadHash, storageId string) er
 	id, _ := json.Marshal(storageId)
 	return db.AppendArray(context.Background(), redisClient, tr.Email, string(id), path)
 }
-
+func getUserUploads(email string) ([]pkg.ListUploadsResult, error) {
+	user, err := findUser(email)
+	if err != nil {
+		return nil, err
+	}
+	var result []pkg.ListUploadsResult
+	for _, file := range user.Files {
+		versions := []pkg.UploadVersionResult{}
+		for _, version := range file.Versions {
+			versions = append(versions, pkg.UploadVersionResult{
+				ID:        version.ID,
+				CreatedAt: version.CreatedAt,
+			})
+		}
+		item := pkg.ListUploadsResult{
+			FileName:  file.Name,
+			Directory: file.Path,
+			CreatedAt: file.UploadedAt,
+			Versions:  versions,
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
 func flushRedis() {
 	err := db.FlushRedis(context.Background(), redisClient)
 	if err != nil {

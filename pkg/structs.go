@@ -6,7 +6,7 @@ type Storage struct {
 	Id         string
 	Index      int
 	LastUpdate time.Time
-	Port int
+	Port       int
 }
 
 type InvokeBody struct {
@@ -16,4 +16,15 @@ type InvokeBody struct {
 }
 type InvokeResponse struct {
 	Token string `json:"token"`
+}
+
+type ListUploadsResult struct {
+	FileName  string
+	Directory string
+	Versions  []UploadVersionResult
+	CreatedAt string
+}
+type UploadVersionResult struct {
+	ID        string
+	CreatedAt string
 }

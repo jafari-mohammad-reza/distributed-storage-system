@@ -33,11 +33,33 @@ func UploadFile(filePath string) error {
 	if err != nil {
 		slog.Error("error serializing file", "err", err)
 	}
-	conn, err := pkg.SendDataOverTcp(cfg.ServerTcpPort, int64(len(serialized)), serialized) 
+	conn, err := pkg.SendDataOverTcp(cfg.ServerTcpPort, int64(len(serialized)), serialized)
 	if err != nil {
 		return err
 	}
 	return conn.Close()
+}
+
+func ListUploads() ([]pkg.ListUploadsResult, error) {
+	var result []pkg.ListUploadsResult
+	token, err := loadTokenFromFile()
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/upload-list", cfg.ServerAddr), nil)
+	req.Header.Add("Authorization", token)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 func Auth(email, password string) error {
 	data, _ := json.Marshal(pkg.InvokeBody{Email: email, Password: password})

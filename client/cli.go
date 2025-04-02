@@ -79,6 +79,36 @@ var revokeCmd = &cobra.Command{
 	},
 }
 
+func printUploads(uploads []pkg.ListUploadsResult) {
+	for _, upload := range uploads {
+		fmt.Printf("File: %s\n", upload.FileName)
+		fmt.Printf("Directory: %s\n\n", upload.Directory)
+		fmt.Println("Versions:")
+		for _, version := range upload.Versions {
+			fmt.Printf("  - ID: %s\n", version.ID)
+			fmt.Printf("    Created At: %s\n", version.CreatedAt)
+		}
+		fmt.Printf("\nCreated At: %s\n", upload.CreatedAt)
+	}
+}
+
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "list your uploaded filess",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := AuthGuard(); err != nil {
+			fmt.Println("error authenticating:", err.Error())
+			return
+		}
+		result, err := ListUploads()
+		if err != nil {
+			fmt.Sprintf("error fetching list of uploads %s", err.Error())
+			return
+		}
+		printUploads(result)
+	},
+}
+
 // commands that will exist:
 // download filePath or fileHash for specific verion
 // upload filePath for uploading the file
@@ -91,5 +121,6 @@ func InitCli() error {
 	rootCmd.AddCommand(uploadCmd)
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(revokeCmd)
+	rootCmd.AddCommand(listCmd)
 	return rootCmd.Execute()
 }
