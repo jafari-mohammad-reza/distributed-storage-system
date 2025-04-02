@@ -137,16 +137,90 @@ func healthCheckStorages(redisClient *redis.Client) {
 func HandleConnection(conn net.Conn) error {
 	buf, err := pkg.GetIncomingBuf(conn)
 	if err != nil {
-		slog.Error("Error getting incoming data" ,"err",err.Error())
+		slog.Error("Error getting incoming data", "err", err.Error())
 	}
 	tr, err := pkg.DeserializePacket(buf.Bytes())
 	if err != nil {
-		slog.Error("Error DeserializePacket","err",err.Error())
+		slog.Error("Error DeserializePacket", "err", err.Error())
 	}
 	switch tr.Command {
 	case "upload":
 		return handleUpload(tr)
+	case "download":
+		return handleDownload(tr, conn)
 	}
+	return nil
+}
+func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
+	sender := tr.SenderMeta.Email
+	fileId := tr.Meta["FileID"]
+	versionId, exist := tr.Meta["Version"]
+	fmt.Println(sender, fileId, versionId, exist)
+	user, err := findUser(tr.Email)
+	if err != nil {
+		return err
+	}
+	var file db.File
+	for _, f := range user.Files {
+		if f.ID == fileId {
+			file = f
+			break
+		}
+		continue
+	}
+	fmt.Println(file)
+	var version db.FileVersion
+	if exist {
+		// download specific version
+		for _, v := range file.Versions {
+			if v.ID == versionId {
+				version = v
+				break
+			}
+			continue
+		}
+	} else {
+		// download latest version
+		version = file.Versions[len(file.Versions)-1]
+	}
+	fmt.Printf("version: %v\n", version)
+	var storage pkg.Storage
+	for _, st := range version.Storages {
+		s, exist := storages[st]
+		if exist {
+			storage = s
+			break
+		}
+		continue
+	}
+	tr.Meta["Hash"] = version.Hash
+	ext := filepath.Ext(file.Name)
+	dirPath := path.Join(file.Path, strings.ReplaceAll(file.Name, ext, ""))
+	dirHash := pkg.HashPath(dirPath)
+	uploadPath := path.Join(tr.Email, dirHash.Filename)
+	tr.Meta["Path"] = uploadPath
+	// TODO: save upload path + upload hash as hash
+	serialized, err := pkg.SerializePacket(tr)
+	if err != nil {
+		return err
+	}
+	responseConn, err := pkg.SendDataOverTcp(storage.Port, int64(len(serialized)), serialized)
+	fmt.Printf("responseConn: %v\n", responseConn)
+	if err != nil {
+		return err
+	}
+	data, err := pkg.ReadConnBuffers(responseConn)
+	if err != nil {
+		fmt.Println("failed to read respnse conn", err.Error())
+		return err
+	}
+	pkg.DeserializePacket(data)
+	err = pkg.SendByteToConn(conn, data)
+	if err != nil {
+		fmt.Println("failed to send data to conn")
+		return err
+	}
+	defer responseConn.Close()
 	return nil
 }
 func handleUpload(tr *pkg.TransferPacket) error {

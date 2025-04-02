@@ -61,6 +61,45 @@ func ListUploads() ([]pkg.ListUploadsResult, error) {
 	}
 	return result, nil
 }
+func DownloadFile(id, version, output string) error {
+	token, err := loadTokenFromFile()
+	if err != nil {
+		return err
+	}
+	claims, err := pkg.DecodeToken(token)
+	if err != nil {
+		return err
+	}
+	meta := map[string]string{"FileID": id}
+	if version != "" {
+		meta["FileVersion"] = version
+	}
+	packet := pkg.TransferPacket{
+		Command:    "download",
+		Meta:       meta,
+		SenderMeta: pkg.SenderMeta{Email: claims["email"].(string), Agent: claims["agent"].(string), Application: "client"},
+	}
+
+	serialized, err := pkg.SerializePacket(&packet)
+	if err != nil {
+		slog.Error("error serializing file", "err", err)
+	}
+	conn, err := pkg.SendDataOverTcp(cfg.ServerTcpPort, int64(len(serialized)), serialized)
+	defer conn.Close()
+	response, err := pkg.ReadConnBuffers(conn)
+	if err != nil {
+		slog.Error("error reading download response", "err", err.Error())
+	}
+	err = pkg.DecompressBytes(response, ".")
+	if err != nil {
+		slog.Error("error writing file to output", "err", err.Error())
+	}
+	// err = os.WriteFile("downloaded.mod" , response , 0755)
+	// if err != nil {
+	// 	slog.Error("error writing file to output" , "err", err.Error())
+	// }
+	return nil
+}
 func Auth(email, password string) error {
 	data, _ := json.Marshal(pkg.InvokeBody{Email: email, Password: password})
 	resp, err := http.Post(fmt.Sprintf("http://%s/api/invoke-token", cfg.ServerAddr), "application/json", bytes.NewBuffer(data))

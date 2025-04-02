@@ -19,6 +19,7 @@ type InvokeResponse struct {
 }
 
 type ListUploadsResult struct {
+	ID string
 	FileName  string
 	Directory string
 	Versions  []UploadVersionResult

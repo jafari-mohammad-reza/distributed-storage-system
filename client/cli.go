@@ -81,6 +81,7 @@ var revokeCmd = &cobra.Command{
 
 func printUploads(uploads []pkg.ListUploadsResult) {
 	for _, upload := range uploads {
+		fmt.Printf("ID: %s\n", upload.ID)
 		fmt.Printf("File: %s\n", upload.FileName)
 		fmt.Printf("Directory: %s\n\n", upload.Directory)
 		fmt.Println("Versions:")
@@ -94,7 +95,7 @@ func printUploads(uploads []pkg.ListUploadsResult) {
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "list your uploaded filess",
+	Short: "list your uploaded files",
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := AuthGuard(); err != nil {
 			fmt.Println("error authenticating:", err.Error())
@@ -109,8 +110,32 @@ var listCmd = &cobra.Command{
 	},
 }
 
+var downloadCmd = &cobra.Command{
+	Use:   "download",
+	Short: "download file you want with version you want",
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := AuthGuard(); err != nil {
+			fmt.Println("error authenticating:", err.Error())
+			return
+		}
+ 		id := cmd.Flag("id").Value.String()
+		version := cmd.Flag("version").Value.String()
+		output := cmd.Flag("output").Value.String()
+		if id == ""{
+			fmt.Println("id can not be empty")
+			return 
+		}
+		err := DownloadFile(id , version , output)
+		if err != nil {
+			fmt.Println("error downloading file" , err.Error())
+			return 
+		}
+		fmt.Println("file downloaded successfully")
+	},
+}
+
 // commands that will exist:
-// download filePath or fileHash for specific verion
+// download filePath or fileHash for specific version
 // upload filePath for uploading the file
 // list for list user files in storages
 // delete filePath or hash for deleting the file
@@ -122,5 +147,9 @@ func InitCli() error {
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(revokeCmd)
 	rootCmd.AddCommand(listCmd)
+	downloadCmd.PersistentFlags().StringP("id", "", "", "fileId to download")
+	downloadCmd.PersistentFlags().StringP("version", "v", "", "version to download")
+	downloadCmd.PersistentFlags().StringP("output", "o", "", "where to store downloaded file")
+	rootCmd.AddCommand(downloadCmd)
 	return rootCmd.Execute()
 }

@@ -1,12 +1,9 @@
 package storage
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -72,18 +69,8 @@ func restoreData(id string, storage *pkg.Storage, startSpan string) {
 	if conn != nil {
 		defer conn.Close()
 	}
-
-	var dataSize int64
-	err = binary.Read(conn, binary.BigEndian, &dataSize)
+	buffer, err := pkg.ReadConnBuffers(conn)
 	if err != nil {
-		fmt.Println("failed to read data size:", err.Error())
-		return
-	}
-
-	buffer := make([]byte, dataSize)
-	_, err = io.ReadFull(conn, buffer)
-	if err != nil {
-		fmt.Println("failed to read compressed data:", err.Error())
 		return
 	}
 	err = pkg.DecompressBytes(buffer, path.Join("storage", "uploads"))
@@ -115,6 +102,22 @@ func handleConnection(conn net.Conn) error {
 		return handleUpload(tr)
 	case "cacheup":
 		return handleCacheUp(tr, conn)
+	case "download":
+		return handleDownload(tr, conn)
+	}
+	return nil
+}
+func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
+	hash, uploadPath := tr.Meta["Hash"], tr.Meta["Path"]
+	filePath := path.Join("storage", "uploads", uploadPath, hash)
+	fmt.Printf("filePath: %v\n", filePath)
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	fmt.Println("sending data")
+	if err := pkg.SendByteToConn(conn, data); err != nil {
+		return err
 	}
 	return nil
 }
@@ -184,14 +187,7 @@ func sendCompressedDir(dirPath string, conn net.Conn) error {
 		fmt.Println("compressing dir erro", err.Error())
 		return err
 	}
-	err = binary.Write(conn, binary.BigEndian, int64(len(dir.Bytes())))
-	if err != nil {
-		fmt.Println("writing size erro", err.Error())
-		return err
-	}
-	_, err = io.CopyN(conn, bytes.NewReader(dir.Bytes()), int64(len(dir.Bytes())))
-	if err != nil {
-		slog.Error("error copying", "error", err.Error())
+	if err := pkg.SendByteToConn(conn, dir.Bytes()); err != nil {
 		return err
 	}
 	return nil

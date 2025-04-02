@@ -70,3 +70,32 @@ func SendDataOverTcp(port int, size int64, dataBytes []byte) (net.Conn, error) {
 	}
 	return conn, nil
 }
+func ReadConnBuffers(conn net.Conn) ([]byte, error) {
+	var dataSize int64
+	err := binary.Read(conn, binary.BigEndian, &dataSize)
+	if err != nil {
+		fmt.Println("failed to read data size:", err.Error())
+		return nil ,err
+	}
+
+	buffer := make([]byte, dataSize)
+	_, err = io.ReadFull(conn, buffer)
+	if err != nil {
+		fmt.Println("failed to read compressed data:", err.Error())
+		return nil , err
+	}
+	return buffer , nil
+}
+func SendByteToConn(conn net.Conn , data []byte) error {
+	err := binary.Write(conn, binary.BigEndian, int64(len(data)))
+	if err != nil {
+		fmt.Println("writing size erro", err.Error())
+		return err
+	}
+	_, err = io.CopyN(conn, bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		slog.Error("error copying", "error", err.Error())
+		return err
+	}
+	return nil 
+}
