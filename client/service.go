@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -46,7 +45,8 @@ func ListUploads() ([]pkg.ListUploadsResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/upload-list", cfg.ServerAddr), nil)
+	// req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/api/upload-list", cfg.ServerAddr), nil)
+	req, err := http.NewRequest("GET", "http://localhost:8080/api/upload-list", nil)
 	req.Header.Add("Authorization", token)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,8 @@ func DownloadFile(id, version, output string) error {
 }
 func Auth(email, password string) error {
 	data, _ := json.Marshal(pkg.InvokeBody{Email: email, Password: password})
-	resp, err := http.Post(fmt.Sprintf("http://%s/api/invoke-token", cfg.ServerAddr), "application/json", bytes.NewBuffer(data))
+	// resp, err := http.Post(fmt.Sprintf("http://%s/api/invoke-token", cfg.ServerAddr), "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post("http://localhost:8080/api/invoke-token", "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}

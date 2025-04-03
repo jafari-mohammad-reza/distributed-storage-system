@@ -1,4 +1,4 @@
 HttpPort: 8080
 TcpPort: 8081
-HealthcheckInterval: 5
+HealthCheckInterval: 5
 HealthCheckTimeout: 10
