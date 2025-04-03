@@ -27,7 +27,7 @@ func InitHttpServer() error {
 	api.POST("/invoke-token", invokeToken)
 	api.GET("/revoke-token", revokeToken)
 	api.GET("/upload-list", uploadList)
-	return server.Start(":8080")
+	return server.Start(fmt.Sprintf(":%d", cfg.HttpPort))
 }
 func validateToken(token string) (string, error) {
 	claims, err := pkg.DecodeToken(token)

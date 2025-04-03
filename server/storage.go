@@ -22,7 +22,7 @@ import (
 var storages map[string]pkg.Storage // map storage id to storage => if two storage connect at same time one will read from an empty storage we need to fix that
 var mu sync.Mutex
 
-func InitStorageControll(serverId string, redisClient *redis.Client) error {
+func InitStorageService(serverId string, redisClient *redis.Client) error {
 	mu.Lock()
 	defer mu.Unlock()
 	storages = loadStoragesFromRedis(redisClient)
@@ -109,7 +109,7 @@ func initRegisterSystem(serverId string, redisClient *redis.Client) {
 	}()
 }
 func healthCheckStorages(redisClient *redis.Client) {
-	ticker := time.NewTicker(time.Duration(cfg.HealthcheckInterval) * time.Minute)
+	ticker := time.NewTicker(time.Duration(cfg.HealthCheckInterval) * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
 		for _, storage := range storages {

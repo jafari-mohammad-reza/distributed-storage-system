@@ -19,7 +19,7 @@ func InitServer() {
 	id, _ := uuid.NewUUID()
 	redisClient := db.NewRedisClient()
 	go func() {
-		if err := InitStorageControll(id.String(), redisClient); err != nil {
+		if err := InitStorageService(id.String(), redisClient); err != nil {
 			slog.Error("Error init storage controller", "err", err.Error())
 		}
 	}()

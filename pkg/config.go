@@ -7,18 +7,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-type ClientConfig struct{
-	ServerAddr string
-	ServerPort int
-	ServerTcpPort int 
+type ClientConfig struct {
+	ServerAddr    string
+	ServerPort    int
+	ServerTcpPort int
 }
-type ServerConfig struct{
-	HttpPort int
-	TcpPort int
-	HealthcheckInterval int
-	HealthCheckTimeout int
+type ServerConfig struct {
+	HttpPort            int
+	TcpPort             int
+	HealthCheckInterval int
+	HealthCheckTimeout  int
 }
-type StorageConfig struct{
+type StorageConfig struct {
 	Port int
 }
 
