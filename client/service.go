@@ -90,14 +90,19 @@ func DownloadFile(id, version, output string) error {
 	if err != nil {
 		slog.Error("error reading download response", "err", err.Error())
 	}
-	err = pkg.DecompressBytes(response, ".")
+	tr, err := pkg.DeserializePacket(response)
+	if err != nil {
+		return err
+	}
+	data, err := pkg.DecompressPacket(tr)
+
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(tr.Meta["FileName"], data, 0755)
 	if err != nil {
 		slog.Error("error writing file to output", "err", err.Error())
 	}
-	// err = os.WriteFile("downloaded.mod" , response , 0755)
-	// if err != nil {
-	// 	slog.Error("error writing file to output" , "err", err.Error())
-	// }
 	return nil
 }
 func Auth(email, password string) error {

@@ -152,10 +152,8 @@ func HandleConnection(conn net.Conn) error {
 	return nil
 }
 func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
-	sender := tr.SenderMeta.Email
 	fileId := tr.Meta["FileID"]
 	versionId, exist := tr.Meta["Version"]
-	fmt.Println(sender, fileId, versionId, exist)
 	user, err := findUser(tr.Email)
 	if err != nil {
 		return err
@@ -168,7 +166,6 @@ func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
 		}
 		continue
 	}
-	fmt.Println(file)
 	var version db.FileVersion
 	if exist {
 		// download specific version
@@ -183,7 +180,6 @@ func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
 		// download latest version
 		version = file.Versions[len(file.Versions)-1]
 	}
-	fmt.Printf("version: %v\n", version)
 	var storage pkg.Storage
 	for _, st := range version.Storages {
 		s, exist := storages[st]
@@ -205,19 +201,24 @@ func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
 		return err
 	}
 	responseConn, err := pkg.SendDataOverTcp(storage.Port, int64(len(serialized)), serialized)
-	fmt.Printf("responseConn: %v\n", responseConn)
 	if err != nil {
 		return err
 	}
 	data, err := pkg.ReadConnBuffers(responseConn)
 	if err != nil {
-		fmt.Println("failed to read respnse conn", err.Error())
 		return err
 	}
-	pkg.DeserializePacket(data)
-	err = pkg.SendByteToConn(conn, data)
+	packet, err := pkg.DeserializePacket(data)
 	if err != nil {
-		fmt.Println("failed to send data to conn")
+		return err
+	}
+	packet.Meta = map[string]string{"FileName": file.Name}
+	sendData, err := pkg.SerializePacket(packet)
+	if err != nil {
+		return err
+	}
+	err = pkg.SendByteToConn(conn, sendData)
+	if err != nil {
 		return err
 	}
 	defer responseConn.Close()

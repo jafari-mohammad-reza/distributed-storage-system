@@ -115,8 +115,16 @@ func handleDownload(tr *pkg.TransferPacket, conn net.Conn) error {
 	if err != nil {
 		return err
 	}
+	packet := pkg.TransferPacket{
+		Compressed:   data,
+		OriginalSize: int64(len(data)),
+	}
+	serialized, err := pkg.SerializePacket(&packet)
+	if err != nil {
+		return err
+	}
 	fmt.Println("sending data")
-	if err := pkg.SendByteToConn(conn, data); err != nil {
+	if err := pkg.SendByteToConn(conn, serialized); err != nil {
 		return err
 	}
 	return nil
